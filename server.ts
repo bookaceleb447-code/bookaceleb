@@ -85,6 +85,14 @@ function getDb() {
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
   const projectId = getProjectId();
 
+  // If we are on Vercel or any non-Google cloud environment and do not have FIREBASE_PRIVATE_KEY, do not initialize Admin SDK.
+  // This completely avoids hanging Firestore connections due to default credential lookup timeouts.
+  const isGoogleEnvironment = process.env.K_SERVICE || process.env.K_REVISION || process.env.GOOGLE_CLOUD_PROJECT;
+  if (!privateKey && !isGoogleEnvironment) {
+    console.warn("⚠️ No FIREBASE_PRIVATE_KEY detected outside of Google Cloud. Skipping Admin SDK to prevent auth hangs, using lightweight REST fallback instead.");
+    return null;
+  }
+
   if (!(admin.apps && admin.apps.length)) {
     try {
       if (privateKey) {
