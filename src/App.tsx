@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ScrollToTop } from './components/ScrollToTop';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 // Lazy load all feature pages to perform route-based bundle splitting
 const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -33,6 +35,47 @@ const ModuleLoader = () => (
 );
 
 export default function App() {
+  useEffect(() => {
+    // Record original favicons to fallback upon deletion
+    const selectors = ["link[rel~='icon']", "link[rel='apple-touch-icon']", "link[rel='shortcut icon']"];
+    const originalHrefs: Record<string, string> = {};
+    selectors.forEach(sel => {
+      const el = document.querySelector(sel) as HTMLLinkElement;
+      if (el) {
+        originalHrefs[sel] = el.getAttribute('href') || '';
+      }
+    });
+
+    const unsub = onSnapshot(doc(db, 'siteSettings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const faviconUrl = data?.faviconUrl || '';
+        
+        selectors.forEach(selector => {
+          const el = document.querySelector(selector) as HTMLLinkElement;
+          if (el) {
+            el.href = faviconUrl || originalHrefs[selector] || '';
+          }
+        });
+        
+        // If there's an active custom favicon but no icon link tags at all exist, append one
+        if (faviconUrl) {
+          let hasIcon = false;
+          selectors.forEach(selector => {
+            if (document.querySelector(selector)) hasIcon = true;
+          });
+          if (!hasIcon) {
+            const newLink = document.createElement('link');
+            newLink.rel = 'icon';
+            newLink.href = faviconUrl;
+            document.head.appendChild(newLink);
+          }
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>

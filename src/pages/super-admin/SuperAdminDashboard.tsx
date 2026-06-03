@@ -72,6 +72,7 @@ export const SuperAdminDashboard = () => {
     const [geminiApiKey, setGeminiApiKey] = useState('');
     const [groqApiKey, setGroqApiKey] = useState('');
     const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+    const [faviconUploading, setFaviconUploading] = useState(false);
 
     const triggerToast = (msg: string) => {
         setToastMessage(msg);
@@ -2245,6 +2246,85 @@ export const SuperAdminDashboard = () => {
                                     >
                                         <Save size={16} /> Save Platform Identity
                                     </button>
+
+                                    {/* Favicon Management Area */}
+                                    <div className="pt-6 border-t border-white/5 space-y-4 text-left">
+                                        <div>
+                                            <h4 className="text-xs font-black uppercase tracking-widest text-[#a5b4fc]">Browser Favicon Management</h4>
+                                            <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1 leading-relaxed">
+                                                Configure the shortcut icon shown in modern browser tabs, mobile previews, bookmarks, and app shortcuts. (Supported formats: .png, .jpg, .svg, .ico)
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 bg-black/35 p-5 rounded-2xl border border-white/5">
+                                            <div className="flex-1 text-center sm:text-left min-w-0">
+                                                {siteSettings?.faviconUrl ? (
+                                                    <div className="space-y-1">
+                                                        <span className="inline-block bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
+                                                            Active Favicon Configured
+                                                        </span>
+                                                        <p className="text-[9px] font-mono text-white/40 truncate max-w-[250px] mt-1">
+                                                            {siteSettings.faviconUrl}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[10px] font-black uppercase tracking-wider text-rose-450">
+                                                        No Custom Favicon Active (Default Browser Icon In Use)
+                                                     </p>
+                                                )}
+                                            </div>
+
+                                            <div className="flex gap-2 shrink-0 col-span-full sm:col-auto">
+                                                <label className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center border border-white/5 min-w-[110px]">
+                                                    <UploadCloud size={14} className="mr-1.5" />
+                                                    {faviconUploading ? 'Uploading...' : 'Upload Icon'}
+                                                    <input 
+                                                      type="file"
+                                                      accept=".png,.jpg,.jpeg,.svg,.ico"
+                                                      onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+                                                        setFaviconUploading(true);
+                                                        try {
+                                                          const url = await uploadToCloudinary(file);
+                                                          const updatedSettings = { ...siteSettings, faviconUrl: url };
+                                                          setSiteSettings(updatedSettings);
+                                                          await handleSaveGlobalSettings({ faviconUrl: url });
+                                                          triggerToast('Favicon uploaded and synced!');
+                                                        } catch (err: any) {
+                                                          alert('Favicon upload failed: ' + err.message);
+                                                        } finally {
+                                                          setFaviconUploading(false);
+                                                        }
+                                                      }}
+                                                      className="hidden"
+                                                      disabled={faviconUploading}
+                                                    />
+                                                </label>
+
+                                                {siteSettings?.faviconUrl && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={async () => {
+                                                        if (confirm('Are you sure you want to delete this custom favicon? This will reset the browser favicon to default.')) {
+                                                          try {
+                                                            const updatedSettings = { ...siteSettings, faviconUrl: "" };
+                                                            setSiteSettings(updatedSettings);
+                                                            await handleSaveGlobalSettings({ faviconUrl: "" });
+                                                            triggerToast('Favicon deleted successfully.');
+                                                          } catch (err: any) {
+                                                            alert('Failed to delete favicon: ' + err.message);
+                                                          }
+                                                        }
+                                                      }}
+                                                      className="py-2 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/10 hover:border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     {/* Unified LiteLLM AI Gateway Configuration */}
                                     <div className="pt-8 border-t border-white/5 space-y-6 text-left">
