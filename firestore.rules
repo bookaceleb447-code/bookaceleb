@@ -1,0 +1,207 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Deny all by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && (
+        (role == 'superadmin' && request.auth.token.email == 'bookaceleb447@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == role)
+      );
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); 
+      allow update: if isOwner(userId) || hasRole('superadmin');
+      allow delete: if hasRole('superadmin');
+    }
+
+    // Celebrity specific data
+    match /celebrities/{celebId} {
+      allow read: if true; 
+      allow write: if isOwner(celebId) || hasRole('superadmin');
+    }
+
+    match /celebrityProfiles/{celebId} {
+      allow read: if true; 
+      allow write: if isOwner(celebId) || hasRole('superadmin');
+    }
+
+    // Automatic Reply Configurations
+    match /automaticReplies/{celebId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(celebId) || hasRole('superadmin');
+
+      match /customReplies/{replyId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(celebId) || hasRole('superadmin');
+      }
+
+      match /cooldowns/{fanId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+    }
+
+    // Landing Page Showcase entries
+    match /landingPageShowcase/{showcaseId} {
+      allow read: if true;
+      allow write: if hasRole('superadmin');
+    }
+
+    // AI telemetry tracking system
+    match /aiUsageLogs/{logId} {
+      allow read: if isSignedIn() && (
+        (resource == null) || 
+        (resource.data.celebrityId == request.auth.uid) || 
+        hasRole('superadmin')
+      );
+      allow write: if hasRole('superadmin');
+    }
+
+    match /aiUsageStats/{statsId} {
+      allow read: if isSignedIn() && (
+        (statsId == request.auth.uid) || 
+        (statsId == 'global') || 
+        hasRole('superadmin')
+      );
+      allow write: if hasRole('superadmin');
+    }
+
+    match /userAiUsage/{userId} {
+      allow read: if isSignedIn() && (
+        (userId == request.auth.uid) || 
+        hasRole('superadmin')
+      );
+      allow write: if hasRole('superadmin');
+    }
+
+    match /aiUsage/{userId} {
+      allow read: if isSignedIn() && (
+        (userId == request.auth.uid) || 
+        hasRole('superadmin')
+      );
+      allow write: if isSignedIn() && (
+        (userId == request.auth.uid) || 
+        hasRole('superadmin')
+      );
+    }
+
+    match /aiRequests/{requestId} {
+      allow read: if isSignedIn() && (
+        (resource == null) || 
+        (resource.data.celebrityId == request.auth.uid) || 
+        hasRole('superadmin')
+      );
+      allow write: if hasRole('superadmin');
+    }
+
+    match /aiAnalytics/{analyticsId} {
+      allow read: if isSignedIn() && (
+        (analyticsId == 'global') || 
+        hasRole('superadmin')
+      );
+      allow write: if hasRole('superadmin');
+    }
+
+    // All other collections
+    match /{collectionName}/{docId} {
+      allow read, write: if hasRole('superadmin');
+    }
+
+    // Bookings
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.fanId || 
+        request.auth.uid == resource.data.celebId ||
+        hasRole('superadmin')
+      );
+      allow create: if isSignedIn() && request.resource.data.fanId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.celebId || 
+        hasRole('superadmin')
+      );
+    }
+
+    // Donations
+    match /donations/{donationId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.fanId || 
+        request.auth.uid == resource.data.celebId ||
+        hasRole('superadmin')
+      );
+      allow create: if isSignedIn();
+      allow update: if hasRole('superadmin') || (isSignedIn() && request.auth.uid == resource.data.celebId);
+    }
+
+    // Memberships
+    match /memberships/{membershipId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.fanId || 
+        request.auth.uid == resource.data.celebId ||
+        hasRole('superadmin')
+      );
+      allow create: if isSignedIn();
+      allow update: if hasRole('superadmin') || (isSignedIn() && request.auth.uid == resource.data.celebId);
+    }
+
+    // Site Settings
+    match /siteSettings/{configId} {
+      allow read: if true;
+      allow write: if hasRole('superadmin');
+    }
+
+    // Tutorials
+    match /tutorials/{tutorialId} {
+      allow read: if isSignedIn() && (hasRole('celebrity') || hasRole('superadmin'));
+      allow write: if hasRole('superadmin');
+    }
+
+    // Chats
+    match /chats/{chatId} {
+      function canChat() {
+        return isSignedIn() && (
+          chatId.matches('.*' + request.auth.uid + '.*') ||
+          hasRole('superadmin') ||
+          (resource != null && request.auth.uid in resource.data.participants) ||
+          (request.resource != null && request.auth.uid in request.resource.data.participants)
+        );
+      }
+      
+      allow read: if canChat();
+      allow write: if canChat();
+      
+      match /messages/{messageId} {
+        allow read: if canChat();
+        allow create: if canChat() && (
+          request.resource.data.senderId == request.auth.uid ||
+          chatId.matches('.*' + request.resource.data.senderId + '.*')
+        );
+        allow update: if canChat() && (request.resource.data.seen != resource.data.seen);
+      }
+
+      match /suggestions/{suggestionId} {
+        allow read, write: if canChat();
+      }
+    }
+  }
+}

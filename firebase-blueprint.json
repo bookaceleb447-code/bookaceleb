@@ -1,0 +1,76 @@
+{
+  "collections": {
+    "users": {
+        "uid": "string",
+        "email": "string",
+        "displayName": "string",
+        "role": "string",
+        "createdAt": "timestamp"
+    },
+    "celebrities": {
+        "celebId": "string",
+        "celebName": "string",
+        "slug": "string",
+        "country": "string",
+        "profilePic": "string",
+        "referralLink": "string",
+        "isLocked": "boolean",
+        "upgradePending": "boolean",
+        "paymentProof": "string",
+        "bookingPrice": "number",
+        "fanCardPrice": "number"
+    },
+    "bookings": {
+        "fanId": "string",
+        "celebId": "string",
+        "eventType": "string",
+        "dateTime": "string",
+        "hours": "number",
+        "fullName": "string",
+        "email": "string",
+        "phone": "string",
+        "location": "string",
+        "totalPrice": "number",
+        "paymentProof": "string",
+        "status": "string",
+        "createdAt": "timestamp"
+    },
+    "donations": {
+        "fanId": "string",
+        "celebId": "string",
+        "amount": "number",
+        "charityType": "string",
+        "paymentProof": "string",
+        "status": "string",
+        "createdAt": "timestamp"
+    },
+    "memberships": {
+        "fanId": "string",
+        "celebId": "string",
+        "tier": "string",
+        "paymentProof": "string",
+        "status": "string",
+        "createdAt": "timestamp"
+    },
+    "siteSettings": {
+        "activationFee": "number",
+        "adminBankName": "string",
+        "adminAccountNo": "string",
+        "adminAccountName": "string"
+    },
+    "tutorials": {
+        "title": "string",
+        "description": "string",
+        "videoUrl": "string",
+        "createdAt": "timestamp"
+    },
+    "automaticReplies": {
+        "enabled": "boolean",
+        "selectedFans": "array",
+        "selectedTemplate": "string",
+        "customTemplate": "string",
+        "applyToAll": "boolean",
+        "updatedAt": "timestamp"
+    }
+  }
+}

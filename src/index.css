@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-accent: "Outfit", sans-serif;
+  
+  --color-primary: #10b981;
+  --color-primary-glow: rgba(16, 185, 129, 0.4);
+  --color-luxury-white: #ffffff;
+  --color-luxury-dark: #020617;
+}
+
+@layer base {
+  body {
+    @apply bg-[#020617] text-slate-100 font-sans antialiased overflow-x-hidden w-full;
+    background-image: radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+                      radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+    word-break: normal;
+    overflow-wrap: break-word;
+    max-width: 100%;
+  }
+}
+
+.glass {
+  @apply bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl;
+}
+
+.glass-dark {
+  @apply bg-black/60 backdrop-blur-xl border border-white/5;
+}
+
+.glow-green {
+  box-shadow: 0 0 20px var(--color-primary-glow);
+}
+
+.neon-text {
+  text-shadow: 0 0 8px var(--color-primary-glow);
+}
+
+/* Safe text scrolling without ugly bars on mobile */
+.scroll-text {
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-text::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar for tables & wider listings */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 99px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
+}
+
+/* Prevent rendering artifacts & static/horizontal flickering line noise on modern browsers with backdrop filters/opacity combinations */
+.glass, .glass-dark, aside, header, section, .sidebar-container {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  overflow: hidden;
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+  isolation: isolate;
+  contain: paint;
+}
+
+/* Premium responsive fluid typography */
+.title-clamp {
+  font-size: clamp(1.5rem, 4.5vw, 3.5rem);
+}
+.subtitle-clamp {
+  font-size: clamp(0.9rem, 2.5vw, 1.25rem);
+}
+
+

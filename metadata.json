@@ -1,0 +1,11 @@
+{
+  "name": "Remix: Book A Celebrity",
+  "description": "Book exclusive sessions, buy fan cards, and support charities through this high-end, mobile-first, glassmorphism-styled celebrity engagement platform.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
