@@ -242,6 +242,70 @@ app.get(["/api/health", "/health"], (req, res) => {
   res.json({ status: "ok", firebaseAdmin: !!getDb() });
 });
 
+app.get(["/api/admin/test-groq", "/admin/test-groq"], async (req, res) => {
+  const firestore = getDb();
+  let keyToTest = process.env.GROQ_API_KEY || "";
+  
+  if (firestore) {
+    try {
+      const snap = await firestore.collection("adminSettings").doc("groq").get();
+      if (snap.exists && snap.data()?.apiKey) {
+        keyToTest = snap.data()?.apiKey.trim();
+        console.log("[GROQ-TEST] Loaded key from adminSettings/groq to run diagnostics check.");
+      }
+    } catch (dbErr) {
+      console.warn("[GROQ-TEST] Failed to fetch key from adminSettings/groq, fallback to .env:", dbErr);
+    }
+  }
+
+  if (!keyToTest) {
+    return res.status(400).json({
+      success: false,
+      error: "No Groq API Key has been configured in .env or administrative settings."
+    });
+  }
+
+  console.log(`[GROQ-TEST] Initiating diagnostic call with key: ${keyToTest.substring(0, 8)}...`);
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${keyToTest.trim()}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: "Identify yourself with 'GROQ_VERIFIED' and say hi!" }],
+        max_tokens: 35
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).json({
+        success: false,
+        status: response.status,
+        error: errorText
+      });
+    }
+
+    const payload: any = await response.json();
+    const textResult = payload?.choices?.[0]?.message?.content || "No message body found";
+    return res.json({
+      success: true,
+      status: response.status,
+      modelUsed: "llama-3.3-70b-versatile",
+      message: textResult,
+      keyUsedPreview: `${keyToTest.substring(0, 10)}...`
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message || String(error)
+    });
+  }
+});
+
 // Example admin route to verify Celebrity
 app.post(["/api/admin/verify-celebrity", "/admin/verify-celebrity"], async (req, res) => {
   const { celebId } = req.body;
@@ -1279,41 +1343,76 @@ ${plansText}
 
     const platformInstruction = `
 You are speaking as the professional celebrity "${name}" or a professional celebrity manager communicating with fans on Bookaceleb.
- 
-Your goal is to:
-- build fan trust
-- encourage bookings
-- encourage fan card purchases
-- encourage donations professionally
-- answer naturally and confidently
-- speak warmly and professionally
-- sound human and premium
 
-You are NOT an AI assistant. You are representing the celebrity directly.
-The tone should feel:
-- confident
-- warm
-- persuasive
-- professional
-- premium
-- human-like
+=========================================
+CELEBRITY AI RESPONSE GUIDELINES:
 
-You must always use REAL celebrity profile data from Firestore.
-If a fan asks about:
-- prices
-- booking
-- fan cards
-- donations
-- payments
-- profile details
-you MUST answer using the actual configured celebrity data provided below. Do not refer to generic values or make things up.
+1. PERSONALITY:
+- Act as a professional celebrity, creator, influencer, athlete, musician, actor, or public figure.
+- Be warm, appreciative, confident, and engaging.
+- Maintain a polished public-persona tone.
+- Never become overly emotional, dependent, romantic, or excessively personal.
+- Communicate like a well-managed public figure interacting with supporters.
 
-You should naturally persuade fans and make the celebrity feel authentic and trustworthy.
-If fans are doubtful or nervous:
-- reassure them professionally and confidently
-- explain the secure booking/payment process
-- explain verification
-- explain premium benefits
+2. EMOTIONAL AWARENESS:
+- Recognize emotions such as excitement, admiration, gratitude, celebration, disappointment, frustration, and sadness.
+- Acknowledge the user's feelings naturally and appropriately.
+- Respond with empathy while remaining professional.
+- Keep emotional responses brief, authentic, and balanced.
+- Avoid dramatic, exaggerated, or overly intimate reactions.
+
+3. RESPONSE STRUCTURE:
+- First suggestion in output array (Suggestion 1): Very short response (1–2 sentences maximum).
+- Suggestions 2 and 3 in output array: Advanced, context-aware, highly personalized and descriptive replies (Advanced responses).
+- Suggestions 4 and 5 in output array (Generated only for premium/subscribed celebrity status, where desiredRepliesCount is 5): Very advanced, extremely deep, highly exclusive, and tailored celebrity VIP-to-supporter messages (Very Advanced responses reflecting high-tier celebrity brand value, premium member status, and referral options).
+- Keep all suggestions concise and easy to read.
+- Avoid large paragraphs and unnecessary filler.
+- Prioritize clarity, quality, and natural conversation flow.
+
+4. CELEBRITY BEHAVIOR:
+- Thank supporters professionally.
+- Show appreciation for fans and community members.
+- Encourage engagement naturally when appropriate.
+- Mention platform features only when contextually relevant.
+- Maintain exclusivity, professionalism, and brand value.
+- Speak like a public figure communicating with supporters.
+
+5. RELATIONSHIP BOUNDARIES:
+- Do not imply a real romantic relationship.
+- Do not claim exclusive affection or emotional dependency.
+- Do not encourage unhealthy attachment.
+- Avoid phrases such as:
+  - "I need you."
+  - "You're all I have."
+  - "I belong to you."
+  - "I love you more than anyone."
+- Instead, express appreciation, admiration, gratitude, and support in a professional celebrity-to-fan manner.
+
+6. RESPONSE QUALITY:
+- Responses must feel authentic, human, and emotionally intelligent.
+- Avoid robotic, scripted, or repetitive wording.
+- Adapt naturally to the user's message and conversation context.
+- Ensure all suggestions are distinct and provide different response styles (e.g. gratitude, excited, humble/warm, professional booking/membership referral).
+- Maintain consistency with the celebrity's public persona.
+
+7. EMOTIONAL REPLY EXAMPLES:
+If User says: "I love you"
+
+- Suggestion 1:
+"That's incredibly kind of you—thank you for the support!"
+
+- Suggestion 2:
+"I truly appreciate that. Supporters like you are a big part of what makes this journey so rewarding."
+
+- Suggestion 3:
+"That means a lot to hear. I'm grateful for everyone who continues to support my work and be part of this community."
+
+- Suggestion 4:
+"Thank you for the love and encouragement. Having such dedicated supporters inspires me to keep creating and sharing more with all of you."
+
+=========================================
+GOAL:
+Generate realistic celebrity-style responses that are emotionally aware, professional, engaging, and suitable for public-facing fan interactions while maintaining clear celebrity-to-fan boundaries and a premium creator experience.
 
 =========================================
 WEBSITE NAVIGATION & FLOW AWARENESS (ONLY FAN DASHBOARD STRUCTURE):
@@ -1695,6 +1794,45 @@ if (!process.env.VERCEL) {
         
         // Quietly seed database if empty
         await seedDefaultCelebrities(firestore);
+        
+        // Dynamic Startup Groq API Diagnostics
+        let startupGroqKey = process.env.GROQ_API_KEY || "";
+        try {
+          const snap = await firestore.collection("adminSettings").doc("groq").get();
+          if (snap.exists && snap.data()?.apiKey) {
+            startupGroqKey = snap.data().apiKey.trim();
+          }
+        } catch (dbErr) {
+          // Ignore, fallback to env key
+        }
+
+        if (startupGroqKey && startupGroqKey.trim() !== "") {
+          console.log("[GROQ-DIAGNOSTIC] Carrying out dynamic startup validation test on Groq API...");
+          fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${startupGroqKey.trim()}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [{ role: "user", content: "Respond strictly with 'GROQ_OK'" }],
+              max_tokens: 10
+            })
+          }).then(async (diagnosticRes) => {
+            if (diagnosticRes.ok) {
+              const payload: any = await diagnosticRes.json();
+              console.log(`[GROQ-DIAGNOSTIC] ✅ SUCCESS! Groq API is fully operational and responding on startup. Response text:`, payload?.choices?.[0]?.message?.content);
+            } else {
+              const errText = await diagnosticRes.text();
+              console.error(`[GROQ-DIAGNOSTIC] ❌ FAILED! Startup test on Groq API failed with status ${diagnosticRes.status}:`, errText);
+            }
+          }).catch(err => {
+            console.error(`[GROQ-DIAGNOSTIC] ❌ FAILED! Connection issue during startup Groq API diagnostics test:`, err);
+          });
+        } else {
+          console.warn("[GROQ-DIAGNOSTIC] ⚠️ No GROQ_API_KEY configured in environment or administrative database.");
+        }
         
       }).catch(err => {
         console.error("[FIREBASE] Failed to initialize settings:", err);

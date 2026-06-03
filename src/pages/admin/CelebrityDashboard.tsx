@@ -99,6 +99,13 @@ export const CelebrityDashboard = () => {
     return () => clearInterval(interval);
   }, [userAiUsage?.cooldownUntil]);
 
+  // Reset suggestions and steps when active chat target switches
+  useEffect(() => {
+    setAiSuggestions([]);
+    setAiStep('confirm');
+    setAiError(null);
+  }, [chatTarget?.id]);
+
   // Chat subsystem states
   const [conversations, setConversations] = useState<any[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
@@ -1814,6 +1821,8 @@ export const CelebrityDashboard = () => {
                   
                   const text = activeNewMessage;
                   setActiveNewMessage('');
+                  setAiSuggestions([]);
+                  setAiStep('confirm');
                   
                   try {
                     // Set typing status to false
@@ -2016,6 +2025,8 @@ export const CelebrityDashboard = () => {
                 const handleSelectSuggestion = (reply: string) => {
                   if (!user) return;
                   setActiveNewMessage(reply);
+                  setAiSuggestions([]);
+                  setAiStep('confirm');
                   setShowAiModal(false);
                   triggerToast("AI Suggestion applied.");
                 };

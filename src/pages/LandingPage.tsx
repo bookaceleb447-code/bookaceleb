@@ -55,81 +55,8 @@ export const LandingPage = () => {
     fetchCelebs();
   }, []);
 
-  // Safe Fallback Display
-  const fallbackFeatured = [
-    {
-      id: "seed-1",
-      celebName: "Leonardo DiCaprio",
-      country: "United States",
-      profilePic: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80",
-      bio: "Award-winning global actor and climate activist offering private live consultation sessions.",
-      bookingPrice: 2500,
-      fanCardPrice: 99,
-      isFeatured: true,
-      isVisible: true
-    },
-    {
-      id: "seed-2",
-      celebName: "Davido",
-      country: "Nigeria",
-      profilePic: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80",
-      bio: "Afrobeats superstar offering backstage meetups, custom fan cards, and supporting clean water campaigns.",
-      bookingPrice: 1500,
-      fanCardPrice: 49,
-      isFeatured: true,
-      isVisible: true
-    },
-    {
-      id: "seed-3",
-      celebName: "Wizkid",
-      country: "Nigeria",
-      profilePic: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=600&auto=format&fit=crop&q=80",
-      bio: "Grammy award winner, trendsetter, and global music icon supporting education projects.",
-      bookingPrice: 1800,
-      fanCardPrice: 59,
-      isFeatured: true,
-      isVisible: true
-    }
-  ];
-
-  const fallbackTrending = [
-    {
-      id: "seed-4",
-      celebName: "Burna Boy",
-      country: "Nigeria",
-      profilePic: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80",
-      bio: "The African Giant. Get a signed Fan Card, VIP lounge perks, or book virtual meetups.",
-      bookingPrice: 2000,
-      fanCardPrice: 79,
-      isTrending: true,
-      isVisible: true
-    },
-    {
-      id: "seed-5",
-      celebName: "Zendaya",
-      country: "United States",
-      profilePic: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&auto=format&fit=crop&q=80",
-      bio: "Fashion icon and Emmy-winning actress offering fashion consulting and youth support donations.",
-      bookingPrice: 3000,
-      fanCardPrice: 129,
-      isTrending: true,
-      isVisible: true
-    },
-    {
-      id: "seed-6",
-      celebName: "Kylian Mbappé",
-      country: "France",
-      profilePic: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&auto=format&fit=crop&q=80",
-      bio: "Elite footballer offering private mentorship slots and junior sports charity support.",
-      bookingPrice: 4500,
-      fanCardPrice: 199,
-      isTrending: true,
-      isVisible: true
-    }
-  ];
-
-  const finalFeatured = featuredCelebs.length > 0 ? featuredCelebs : fallbackFeatured;
-  const finalTrending = trendingCelebs.length > 0 ? trendingCelebs : fallbackTrending;
+  const finalFeatured = featuredCelebs;
+  const finalTrending = trendingCelebs;
 
   // Currency helper (Showcase prices on landing page should always be USD)
   const currencySymbol = '$';
@@ -305,9 +232,16 @@ export const LandingPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {finalFeatured.map((celeb, idx) => (
-            <CelebrityCard key={celeb.id || idx} celeb={celeb} currencySymbol={currencySymbol} />
-          ))}
+          {finalFeatured.length === 0 ? (
+            <div className="col-span-full py-16 px-6 bg-slate-900/20 border border-white/5 rounded-[2rem] text-center max-w-lg mx-auto w-full">
+              <p className="text-sm text-white/50 font-bold uppercase tracking-widest mb-1">Coming Soon</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wider">Our curated high-tier featured registry is currently being updated by platform directors.</p>
+            </div>
+          ) : (
+            finalFeatured.map((celeb, idx) => (
+              <CelebrityCard key={celeb.id || idx} celeb={celeb} currencySymbol={currencySymbol} />
+            ))
+          )}
         </div>
       </section>
 
@@ -328,9 +262,16 @@ export const LandingPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {finalTrending.map((celeb, idx) => (
-            <CelebrityCard key={celeb.id || idx} celeb={celeb} currencySymbol={currencySymbol} isTrending />
-          ))}
+          {finalTrending.length === 0 ? (
+            <div className="col-span-full py-16 px-6 bg-slate-900/20 border border-white/5 rounded-[2rem] text-center max-w-lg mx-auto w-full">
+              <p className="text-sm text-white/50 font-bold uppercase tracking-widest mb-1">Coming Soon</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wider">Dynamic trending feeds are currently being calibrated to list high-engagement icons.</p>
+            </div>
+          ) : (
+            finalTrending.map((celeb, idx) => (
+              <CelebrityCard key={celeb.id || idx} celeb={celeb} currencySymbol={currencySymbol} isTrending />
+            ))
+          )}
         </div>
       </section>
 
