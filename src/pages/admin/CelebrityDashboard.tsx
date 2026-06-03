@@ -1947,9 +1947,17 @@ export const CelebrityDashboard = () => {
                   setAiLoading(true);
                   setAiError(null);
                   setAiStep('suggestions');
+
+                  // Create AbortController to implement a strict 8-second request timeout failsafe
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => {
+                    controller.abort();
+                  }, 8000);
+
                   try {
                     const token = await user.getIdToken();
-                    const response = await fetch("/api/gemini/suggest-replies", {
+                    const baseUrl = import.meta.env.VITE_API_URL || "";
+                    const response = await fetch(`${baseUrl}/api/gemini/suggest-replies`, {
                       method: "POST",
                       headers: {
                         "Content-Type": "application/json",
@@ -1961,14 +1969,23 @@ export const CelebrityDashboard = () => {
                         celebId: user.uid,
                         isRegenerate: isRegen,
                         previousSuggestions: aiSuggestions
-                      })
+                      }),
+                      signal: controller.signal
                     });
+                    
+                    clearTimeout(timeoutId);
+
+                    // Robustly detect common routing situations on static hosting platforms like Vercel
+                    const contentType = response.headers.get("content-type") || "";
+                    if (!response.ok || contentType.includes("text/html")) {
+                      throw new Error(`Invalid response content format from active router (status: ${response.status}). Expected application/json.`);
+                    }
                     
                     const data = await response.json();
                     console.log("Client API raw response:", data);
                     
                     const list = data?.replies || data?.suggestions;
-                    if (response.ok && Array.isArray(list) && list.length > 0) {
+                    if (Array.isArray(list) && list.length > 0) {
                       setAiSuggestions(list);
                       const resolvedProvider = data.provider === "demo" ? "demo" : (data.provider === "pre-live" ? "pre-live" : (data.provider || "live"));
                       setAiProvider(resolvedProvider);
@@ -2008,15 +2025,77 @@ export const CelebrityDashboard = () => {
                       }
                     } else {
                       const errMsg = data?.error || "AI replies temporarily unavailable. Try again.";
-                      setAiError(errMsg);
-                      triggerToast(errMsg);
-                      setAiSuggestions([]);
+                      throw new Error(errMsg);
                     }
-                  } catch (err) {
-                    console.error("Fetch smart replies failed:", err);
-                    setAiError("AI replies assignment failed. Please retry.");
-                    triggerToast("AI replies assignment failed. Please retry.");
-                    setAiSuggestions([]);
+                  } catch (err: any) {
+                    clearTimeout(timeoutId);
+                    console.warn("⚠️ Fetch smart replies had issue or timed out, executing native fallback rule mechanics:", err);
+                    
+                    // Native client-side dynamic fallback generator prevents infinite loader situations on Vercel
+                    const lastMsg = activeMessages && activeMessages.length > 0 ? activeMessages[activeMessages.length - 1] : null;
+                    const textToAnalyze = (lastMsg?.text || lastMsg?.content || lastMsg?.mediaUrl || "").toLowerCase();
+                    
+                    let fallbackRepo: string[] = [];
+                    if (textToAnalyze.includes("hello") || textToAnalyze.includes("hi") || textToAnalyze.includes("hey") || textToAnalyze.includes("good morning") || textToAnalyze.includes("good evening")) {
+                      fallbackRepo = [
+                        "Hello! It is so incredible to hear from you today. How can I make your day special?",
+                        "Hi support! Thank you so much for reaching out on my official link. What would you love to talk about today?",
+                        "Hey! So glad you connected on my official private line. Sending you warm thoughts and wishes!",
+                        "Hi there! It's an honor to have you with me on my personal platform. How are you doing today?",
+                        "Hello! Thank you so much for booking/interacting with me here. What can I do to put a smile on your face?"
+                      ];
+                    } else if (textToAnalyze.includes("price") || textToAnalyze.includes("how much") || textToAnalyze.includes("cost") || textToAnalyze.includes("book") || textToAnalyze.includes("rate") || textToAnalyze.includes("video") || textToAnalyze.includes("meeting")) {
+                      fallbackRepo = [
+                        "I would be absolutely thrilled to jump on a direct video session with you! Feel free to review my booking options on the Booking tab.",
+                        "We can set up an authentic video link on my calendar. Check out my hourly rate and open slots right inside the Booking section.",
+                        "Scheduling rates are visible under the Book tab here. Choose a time that works best and we will chat face-to-face!",
+                        "I'd love to lock in our private video call! You can see the booking options and open hours on your dashboard.",
+                        "My pricing and details are fully customizable under the Book Session tab. Can't wait for us to interact!"
+                      ];
+                    } else if (textToAnalyze.includes("card") || textToAnalyze.includes("member") || textToAnalyze.includes("tier") || textToAnalyze.includes("join") || textToAnalyze.includes("gold") || textToAnalyze.includes("silver") || textToAnalyze.includes("platinum")) {
+                      fallbackRepo = [
+                        "Staying connected with my best fans means the world to me. Take a look at the custom Fan Cards on your dashboard!",
+                        "Unlocking an official Fan Card grants you exclusive access and direct messages with me. Check out the fan card tiers!",
+                        "My active Fan Cards are fully configured right here on the dashboard. Choose a tier that fits you best!",
+                        "Choosing a premium fan membership allows us to text directly and share behind-the-scenes content securely.",
+                        "You can support my creative journey and unlock elite messages through the Fan Cards section. Looking forward to it!"
+                      ];
+                    } else if (textToAnalyze.includes("payout") || textToAnalyze.includes("pay") || textToAnalyze.includes("payment") || textToAnalyze.includes("transfer") || textToAnalyze.includes("bank") || textToAnalyze.includes("account") || textToAnalyze.includes("dollar") || textToAnalyze.includes("naira") || textToAnalyze.includes("ngn")) {
+                      fallbackRepo = [
+                        "For standard profiles, you can complete escrow deposit transfers securely using OPAY or configured bank accounts.",
+                        "The billing page accepts bank wire transfers, crypto wallets, and gift card uploads. Check active escrow payment methods.",
+                        "All account activation fees and subscriber dues are handled securely by administrative escrow verification.",
+                        "Simply complete your transaction using the accounts, and upload a screenshot of your payment slip right here.",
+                        "Our backend team verifies bank deposit receipts instantly, so your access will pop up premium tools immediately!"
+                      ];
+                    } else if (textToAnalyze.includes("love") || textToAnalyze.includes("fan") || textToAnalyze.includes("big fan") || textToAnalyze.includes("idol") || textToAnalyze.includes("admire") || textToAnalyze.includes("support")) {
+                      fallbackRepo = [
+                        "Your beautiful words and endless support warm my heart! Thank you for being such an extraordinary fan.",
+                        "Honestly, supporters like you are the entire reason I do what I do! Sending you my ultimate love and appreciation.",
+                        "Thank you for standing by me through thick and thin! You are a true trooper, and I'm deeply grateful to have you here.",
+                        "I am incredibly blessed to have someone so kind and positive supporting my journey. Wishing you the absolute best!",
+                        "I see your messages and support, and they mean the world to me. Stay creative and stay safe!"
+                      ];
+                    } else {
+                      fallbackRepo = [
+                        "Thank you so much for your amazing support! It keeps me going every single day.",
+                        "I'm currently busy with production and creative sessions, but my team and I review these lines carefully. Let's schedule a call!",
+                        "Warmest regards from my desk! You are a true supporter, and I am highly blessed to have you here.",
+                        "I'm super thrilled to receive your message. Hope your week is off to a miraculous, wonderful start!",
+                        "Let's make sure we schedule some direct calendar time face-to-face. Checking out standard booking rates is a great start!"
+                      ];
+                    }
+
+                    // Slice the fallback suggestion list to desired size
+                    const fallbackSize = isPremium ? 5 : 3;
+                    const finalSugs = fallbackRepo.slice(0, fallbackSize);
+                    
+                    setAiSuggestions(finalSugs);
+                    setAiProvider("demo");
+                    setIsFallbackActivated(true);
+                    
+                    // Show helpful educational message
+                    triggerToast("Using local Smart Reply fallback (Backend offline/unreachable).");
                   } finally {
                     setAiLoading(false);
                   }
