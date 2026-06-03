@@ -2937,8 +2937,8 @@ export const CelebrityDashboard = () => {
       </main>
       <Toast show={toastShow} message={toastMessage} onClose={() => setToastShow(false)} />
 
-      {/* Floating Support Hub - Mobile & Desktop visible - hidden on chat tab to avoid blocking inputs */}
-      {activeTab !== 'chats' && (
+      {/* Floating Support Hub - Mobile & Desktop visible - hidden on chat tab to avoid blocking inputs or when mobile menu is open */}
+      {activeTab !== 'chats' && !isMenuOpen && (
         <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2 text-sans font-sans">
           <span className="text-[8px] uppercase font-black text-white/35 tracking-widest bg-slate-950/90 px-2.5 py-1 rounded-full border border-white/5 backdrop-blur-md">Support Hub</span>
           <div className="flex gap-2.5">
