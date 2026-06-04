@@ -15,6 +15,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<'user' | 'celebrity' | 'superadmin' | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authControls, setAuthControls] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubControls = onSnapshot(doc(db, 'siteSettings', 'authControls'), (snap) => {
+      if (snap.exists()) {
+        setAuthControls(snap.data());
+      }
+    }, (err) => {
+      console.error('Error loading authControls in auth provider:', err);
+    });
+    return unsubControls;
+  }, []);
+
+  useEffect(() => {
+    if (!user || !role || !authControls) return;
+
+    // Super Admin is always exempt from authentication locks
+    if (role === 'superadmin' || user.email === 'bookaceleb447@gmail.com') return;
+
+    const isGlobalDisabled = authControls.globalAuthEnabled === false;
+    const isCelebLoginBlocked = role === 'celebrity' && authControls.celebrityLoginEnabled === false;
+    const isFanLoginBlocked = role === 'user' && authControls.fanLoginEnabled === false;
+
+    if (isGlobalDisabled || isCelebLoginBlocked || isFanLoginBlocked) {
+      console.warn(`[AuthLock Session Enforcement] Active lock triggered logout. Role: ${role}, GlobalDisabled: ${isGlobalDisabled}, CelebLoginBlocked: ${isCelebLoginBlocked}, FanLoginBlocked: ${isFanLoginBlocked}`);
+      auth.signOut().catch(err => {
+        console.error('Error executing forced auth lock logout:', err);
+      });
+    }
+  }, [user, role, authControls]);
 
   useEffect(() => {
     let unsubUserDoc: (() => void) | null = null;
