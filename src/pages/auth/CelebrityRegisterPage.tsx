@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getFriendlyRegisterError } from '../../lib/authErrors';
+import { AuthLockScreen } from '../../components/AuthLockScreen';
 
 export const CelebrityRegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -13,7 +15,28 @@ export const CelebrityRegisterPage = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authControls, setAuthControls] = useState<any>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'siteSettings', 'authControls'), (snap) => {
+      if (snap.exists()) {
+        setAuthControls(snap.data());
+      } else {
+        setAuthControls({
+          celebrityRegisterEnabled: true,
+          celebrityLoginEnabled: true,
+          fanRegisterEnabled: true,
+          fanLoginEnabled: true,
+          globalAuthEnabled: true,
+          maintenanceReason: 'We are performing scheduled upgrades. Please try again later.'
+        });
+      }
+    }, (err) => {
+      console.warn("Error loading celebrity register auth locks:", err);
+    });
+    return unsub;
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +73,29 @@ export const CelebrityRegisterPage = () => {
       navigate('/admin');
 
     } catch (err: any) {
-      setError(err.message);
+      setError(getFriendlyRegisterError(err));
     } finally {
       setLoading(false);
     }
   };
+
+  const isGlobalLocked = authControls && authControls.globalAuthEnabled === false;
+  const isCelebRegisterLocked = authControls && authControls.celebrityRegisterEnabled === false;
+  const isLocked = isGlobalLocked || isCelebRegisterLocked;
+
+  if (isLocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#020617] relative overflow-hidden font-sans">
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary blur-[120px] rounded-full" />
+        </div>
+        <AuthLockScreen 
+          title="Registration Temporarily Unavailable" 
+          reason={authControls?.maintenanceReason} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#020617] relative overflow-hidden">

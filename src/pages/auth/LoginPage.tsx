@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getFriendlyLoginError } from '../../lib/authErrors';
+import { AuthLockScreen } from '../../components/AuthLockScreen';
 
 interface LoginPageProps {
   forceRole?: 'celebrity' | 'superadmin' | 'user';
@@ -14,7 +16,28 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authControls, setAuthControls] = useState<any>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'siteSettings', 'authControls'), (snap) => {
+      if (snap.exists()) {
+        setAuthControls(snap.data());
+      } else {
+        setAuthControls({
+          celebrityRegisterEnabled: true,
+          celebrityLoginEnabled: true,
+          fanRegisterEnabled: true,
+          fanLoginEnabled: true,
+          globalAuthEnabled: true,
+          maintenanceReason: 'We are performing scheduled upgrades. Please try again later.'
+        });
+      }
+    }, (err) => {
+      console.warn("Error loading login auth locks:", err);
+    });
+    return unsub;
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,11 +111,32 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
       }
 
     } catch (err: any) {
-      setError(err.message);
+      setError(getFriendlyLoginError(err));
     } finally {
       setLoading(false);
     }
   };
+
+  const isGlobalLocked = authControls && authControls.globalAuthEnabled === false;
+  const isCelebLoginLocked = authControls && authControls.celebrityLoginEnabled === false && forceRole === 'celebrity';
+  const isFanLoginLocked = authControls && authControls.fanLoginEnabled === false && (!forceRole || forceRole === 'user');
+
+  // Super Admin bypasses all locks
+  const isLocked = forceRole !== 'superadmin' && (isGlobalLocked || isCelebLoginLocked || isFanLoginLocked);
+
+  if (isLocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#020617] relative overflow-hidden font-sans selection:bg-primary selection:text-black">
+        <div className="absolute top-0 left-0 w-full h-full opacity-25 pointer-events-none">
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary blur-[150px] rounded-full" />
+        </div>
+        <AuthLockScreen 
+          title="Login Temporarily Unavailable" 
+          reason={authControls?.maintenanceReason} 
+        />
+      </div>
+    );
+  }
 
   const referredCelebName = localStorage.getItem('referred_celeb_name') || '';
 

@@ -74,6 +74,16 @@ export const SuperAdminDashboard = () => {
     const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
     const [faviconUploading, setFaviconUploading] = useState(false);
 
+    // Authentication Lock controls state
+    const [authControls, setAuthControls] = useState<any>({
+        celebrityRegisterEnabled: true,
+        celebrityLoginEnabled: true,
+        fanRegisterEnabled: true,
+        fanLoginEnabled: true,
+        globalAuthEnabled: true,
+        maintenanceReason: 'We are performing scheduled upgrades. Please try again later.'
+    });
+
     const triggerToast = (msg: string) => {
         setToastMessage(msg);
         setToastShow(true);
@@ -120,6 +130,26 @@ export const SuperAdminDashboard = () => {
             }
         }, (err) => {
             console.log("Error loading dynamic Groq settings:", err);
+        });
+
+        // Real-time dynamic Authentication Controls
+        const unsubAuthControls = onSnapshot(doc(db, 'siteSettings', 'authControls'), (docSnap) => {
+            if (docSnap.exists()) {
+                setAuthControls(docSnap.data());
+            } else {
+                const defaultControls = {
+                    celebrityRegisterEnabled: true,
+                    celebrityLoginEnabled: true,
+                    fanRegisterEnabled: true,
+                    fanLoginEnabled: true,
+                    globalAuthEnabled: true,
+                    maintenanceReason: 'We are performing scheduled upgrades. Please try again later.'
+                };
+                setDoc(doc(db, 'siteSettings', 'authControls'), defaultControls);
+                setAuthControls(defaultControls);
+            }
+        }, (err) => {
+            console.error("Error loading auth controls:", err);
         });
 
         // Real-time Master Celebrities profiles (using celebrityProfiles collection)
@@ -223,6 +253,7 @@ export const SuperAdminDashboard = () => {
             unsubTutorials();
             unsubGroq();
             unsubAiUsage();
+            unsubAuthControls();
         };
     }, []);
 
@@ -714,6 +745,7 @@ export const SuperAdminDashboard = () => {
         { id: 'landing-mgmt', label: 'Landing Page Management', icon: <LayoutGrid size={18} /> },
         { id: 'tutorials', label: 'Celebrity Tutorials', icon: <Video size={18} /> },
         { id: 'branding', label: 'Branding & Setup', icon: <Settings size={18} /> },
+        { id: 'auth-controls', label: 'Authentication Controls', icon: <ShieldAlert size={18} /> },
     ];
 
     const currentActiveItem = navItems.find(item => item.id === activeTab);
@@ -2421,6 +2453,172 @@ export const SuperAdminDashboard = () => {
                                             Purge Central Database
                                         </button>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 13. Authentication Controls Tab */}
+                        {activeTab === 'auth-controls' && (
+                            <div className="max-w-xl bg-slate-900/40 p-4 sm:p-6 md:p-10 border border-white/5 rounded-[2.5rem] space-y-8">
+                                <div>
+                                    <h3 className="text-xl font-bold uppercase tracking-widest text-white italic mb-2">Authentication Controls</h3>
+                                    <p className="text-white/40 text-[10px] uppercase tracking-wider leading-relaxed">
+                                        Instantly toggle real-time login and registration locks across the entire platform. Settings apply immediately.
+                                    </p>
+                                </div>
+
+                                {/* Global Override */}
+                                <div className="bg-black/30 p-6 rounded-2xl border border-white/5 space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <h4 className="text-xs font-black uppercase tracking-widest text-[#a5b4fc]">Global Authentication Override</h4>
+                                            <p className="text-[10px] text-white/35 mt-1">If disabled, overrides all registrations and logins, locking the entire gateway.</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            const nextVal = !authControls.globalAuthEnabled;
+                                            const updated = { ...authControls, globalAuthEnabled: nextVal };
+                                            setAuthControls(updated);
+                                            await setDoc(doc(db, 'siteSettings', 'authControls'), updated);
+                                            triggerToast(nextVal ? 'Global Authentication Enabled' : 'Global Authentication Disabled');
+                                          }}
+                                          className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            authControls.globalAuthEnabled 
+                                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                              : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                          }`}
+                                        >
+                                            {authControls.globalAuthEnabled ? 'Enabled' : 'Disabled'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Celebrity Controls */}
+                                <div className="bg-black/30 p-6 rounded-2xl border border-white/5 space-y-6">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-primary italic border-b border-white/5 pb-2">Celebrity Portal</h4>
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-300">Celebrity Registration</p>
+                                            <p className="text-[9px] text-white/35 mt-0.5">Allow new celebrity profiles to apply and register on the system.</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            const nextVal = !authControls.celebrityRegisterEnabled;
+                                            const updated = { ...authControls, celebrityRegisterEnabled: nextVal };
+                                            setAuthControls(updated);
+                                            await setDoc(doc(db, 'siteSettings', 'authControls'), updated);
+                                            triggerToast(nextVal ? 'Celebrity Registration Enabled' : 'Celebrity Registration Disabled');
+                                          }}
+                                          className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            authControls.celebrityRegisterEnabled 
+                                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                              : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                          }`}
+                                        >
+                                            {authControls.celebrityRegisterEnabled ? 'Enabled' : 'Disabled'}
+                                        </button>
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-300">Celebrity Login</p>
+                                            <p className="text-[9px] text-white/35 mt-0.5">Unlock sign in controls for already registered celebrity curators.</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            const nextVal = !authControls.celebrityLoginEnabled;
+                                            const updated = { ...authControls, celebrityLoginEnabled: nextVal };
+                                            setAuthControls(updated);
+                                            await setDoc(doc(db, 'siteSettings', 'authControls'), updated);
+                                            triggerToast(nextVal ? 'Celebrity Login Enabled' : 'Celebrity Login Disabled');
+                                          }}
+                                          className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            authControls.celebrityLoginEnabled 
+                                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                              : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                          }`}
+                                        >
+                                            {authControls.celebrityLoginEnabled ? 'Enabled' : 'Disabled'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Fan Controls */}
+                                <div className="bg-black/30 p-6 rounded-2xl border border-white/5 space-y-6">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-[#6366f1] italic border-b border-white/5 pb-2">Fan Portal</h4>
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-300">Fan Registration</p>
+                                            <p className="text-[9px] text-white/35 mt-0.5">Enable new general user and fan check-ins to join the portal.</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            const nextVal = !authControls.fanRegisterEnabled;
+                                            const updated = { ...authControls, fanRegisterEnabled: nextVal };
+                                            setAuthControls(updated);
+                                            await setDoc(doc(db, 'siteSettings', 'authControls'), updated);
+                                            triggerToast(nextVal ? 'Fan Registration Enabled' : 'Fan Registration Disabled');
+                                          }}
+                                          className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            authControls.fanRegisterEnabled 
+                                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                              : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                          }`}
+                                        >
+                                            {authControls.fanRegisterEnabled ? 'Enabled' : 'Disabled'}
+                                        </button>
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-300">Fan Login</p>
+                                            <p className="text-[9px] text-white/35 mt-0.5">Allow verified fans and users to access their dashboard portals.</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            const nextVal = !authControls.fanLoginEnabled;
+                                            const updated = { ...authControls, fanLoginEnabled: nextVal };
+                                            setAuthControls(updated);
+                                            await setDoc(doc(db, 'siteSettings', 'authControls'), updated);
+                                            triggerToast(nextVal ? 'Fan Login Enabled' : 'Fan Login Disabled');
+                                          }}
+                                          className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            authControls.fanLoginEnabled 
+                                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                              : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                          }`}
+                                        >
+                                            {authControls.fanLoginEnabled ? 'Enabled' : 'Disabled'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Custom Message Field */}
+                                <div className="bg-black/30 p-6 rounded-2xl border border-white/5 space-y-4">
+                                    <label className="block text-[10px] uppercase font-black tracking-widest text-[#a5b4fc] mb-1">Maintenance Reason</label>
+                                    <textarea
+                                      value={authControls.maintenanceReason || ''}
+                                      onChange={e => setAuthControls({ ...authControls, maintenanceReason: e.target.value })}
+                                      placeholder="Explain the maintenance event..."
+                                      className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white focus:border-indigo-500/50 outline-none h-24 font-semibold text-xs leading-relaxed"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await setDoc(doc(db, 'siteSettings', 'authControls'), authControls);
+                                        triggerToast('Maintenance Reason Saved Successfully!');
+                                      }}
+                                      className="py-3 px-6 bg-indigo-500/10 hover:bg-indigo-500 hover:text-black border border-indigo-500/25 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all inline-flex items-center gap-2 cursor-pointer font-bold"
+                                    >
+                                        <Save size={14} /> Save Maintenance Message
+                                    </button>
                                 </div>
                             </div>
                         )}
