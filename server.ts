@@ -32,6 +32,31 @@ export function isValidGroqApiKey(key: string | undefined): boolean {
   return true;
 }
 
+console.log("==================================================");
+console.log("🔍 [INIT] INVESTIGATING ENVIRONMENT CONFIGURATION ON SERVER STARTUP");
+console.log(`🌍 Env node_env: ${process.env.NODE_ENV || "development"}`);
+console.log(`🌐 Hosting Environment: ${process.env.VERCEL ? "Vercel Serverless Function" : "Google Cloud Run / Local Sandbox"}`);
+console.log(`📦 Loaded api keys details:`);
+
+const rawGemini = process.env.GEMINI_API_KEY;
+if (rawGemini) {
+  const isVal = isValidGeminiApiKey(rawGemini);
+  const cleaned = rawGemini.trim().replace(/^["']|["']$/g, "").trim();
+  console.log(`  - GEMINI_API_KEY: EXISTS (Length: ${rawGemini.length}, Starts with AIzaSy: ${cleaned.startsWith("AIzaSy")}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)}, Valid: ${isVal})`);
+} else {
+  console.log("  - GEMINI_API_KEY: MISSING ❌");
+}
+
+const rawGroq = process.env.GROQ_API_KEY;
+if (rawGroq) {
+  const isVal = isValidGroqApiKey(rawGroq);
+  const cleaned = rawGroq.trim().replace(/^["']|["']$/g, "").trim();
+  console.log(`  - GROQ_API_KEY: EXISTS (Length: ${rawGroq.length}, Starts with gsk_: ${cleaned.startsWith("gsk_")}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)}, Valid: ${isVal})`);
+} else {
+  console.log("  - GROQ_API_KEY: MISSING ❌");
+}
+console.log("==================================================");
+
 // Initialize Firebase Admin lazily to avoid crashing on startup if keys are missing
 let db: any = null;
 
@@ -418,23 +443,42 @@ async function generateWithLiteLLM(
   let lastErr: any = null;
   let geminiQuotaExceeded = false;
 
+  console.log("\n==================================================");
+  console.log("📈 [LiteLLM Router] Starting smart replies generation workflow...");
+  console.log("   - Request status: ACTIVE");
+  console.log(`   - Output replies requested: ${desiredRepliesCount}`);
+  console.log(`   - History context size: ${formattedHistory.split("\n").length} chat log entries`);
+  console.log(`   - Profile context size: ${profileContext.length} characters`);
+  console.log(`   - Latest Fan query: "${lastFanText}"`);
+
+  // Verify and log API Keys from both runtime environment and arguments
+  console.log("📝 [LiteLLM Router] Runtime environment variables state check:");
+  const envGemini = process.env.GEMINI_API_KEY;
+  const envGroq = process.env.GROQ_API_KEY;
+  console.log(`   - process.env.GEMINI_API_KEY: ${envGemini ? `EXISTS (Length: ${envGemini.length}, Valid schema: ${isValidGeminiApiKey(envGemini)})` : "MISSING ❌"}`);
+  console.log(`   - process.env.GROQ_API_KEY: ${envGroq ? `EXISTS (Length: ${envGroq.length}, Valid schema: ${isValidGroqApiKey(envGroq)})` : "MISSING ❌"}`);
+
   // Compile list of potential Gemini keys to try in order of priority (Dynamic Firestore setting first, then env)
   const geminiKeysToTry: string[] = [];
   if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") {
     const cleaned = geminiApiKey.trim().replace(/^["']|["']$/g, "").trim();
     if (isValidGeminiApiKey(cleaned)) {
       geminiKeysToTry.push(cleaned);
+      console.log(`   - Prioritizing dynamic database Gemini API key (Length: ${cleaned.length}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)})`);
+    } else {
+      console.warn(`   - Warning: Dynamic db Gemini API key candidate has invalid format: "${cleaned.slice(0, Math.min(6, cleaned.length))}..."`);
     }
   }
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "undefined" && process.env.GEMINI_API_KEY.trim() !== "") {
-    const envKey = process.env.GEMINI_API_KEY.trim().replace(/^["']|["']$/g, "").trim();
+  if (envGemini && envGemini !== "undefined" && envGemini.trim() !== "") {
+    const envKey = envGemini.trim().replace(/^["']|["']$/g, "").trim();
     if (isValidGeminiApiKey(envKey) && !geminiKeysToTry.includes(envKey)) {
       geminiKeysToTry.push(envKey);
+      console.log(`   - Enlisting environment Gemini API key (Length: ${envKey.length}, Masked: ${envKey.slice(0, 6)}...${envKey.slice(-4)})`);
     }
   }
 
   if (geminiKeysToTry.length === 0) {
-    console.log("ℹ️ [LiteLLM Router] Skipping primary Gemini routes: No configured or valid Gemini API keys found.");
+    console.warn("⚠️ [LiteLLM Router] Skipping primary Gemini routes: No configured or valid Gemini API keys identified in system.");
   }
 
   let geminiSuccess = false;
@@ -442,8 +486,15 @@ async function generateWithLiteLLM(
   // 1. PRIMARY MODEL: gemini/gemini-3.5-flash with key fallback and timeout protection
   for (let k = 0; k < geminiKeysToTry.length; k++) {
     const activeKey = geminiKeysToTry[k];
+    const maskedKeyStr = `${activeKey.slice(0, 6)}...${activeKey.slice(-4)}`;
+    
+    // Attempt Structured JSON Generation
     try {
-      console.log(`🤖 [LiteLLM Router] Routing request to primary model: gemini/gemini-3.5-flash (attempt key ${k + 1}/${geminiKeysToTry.length})...`);
+      console.log(`🤖 [LiteLLM Router] [INITIALIZATION] Preparing GoogleGenAI client (instance ${k + 1}/${geminiKeysToTry.length})...`);
+      console.log(`   - Model: gemini-3.5-flash`);
+      console.log(`   - Key Masked: ${maskedKeyStr}`);
+      console.log(`   - Key Prefix Valid: ${activeKey.startsWith("AIzaSy")}`);
+      
       const ai = new GoogleGenAI({
         apiKey: activeKey,
         httpOptions: {
@@ -452,8 +503,9 @@ async function generateWithLiteLLM(
           }
         }
       });
+      console.log("🤖 [LiteLLM Router] [INITIALIZATION] GoogleGenAI client successfully constructed.");
 
-      // Strict 25-second timeout protection for Gemini calls (mitigates slow responses/timeout issues)
+      console.log("📈 [LiteLLM Router] [REQUEST] Dispatching generateContent with dynamic JSON schema to Gemini...");
       const timeoutPromise = new Promise<{ text: string }>((_, reject) => 
         setTimeout(() => reject(new Error("Primary provider gemini-3.5-flash timed out (25s limit reached).")), 25000)
       );
@@ -491,7 +543,12 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
       if (Array.isArray(parsed) && parsed.length > 0) {
         suggestions = parsed.slice(0, desiredRepliesCount);
         const duration = Date.now() - startTime;
-        console.log(`✅ [LiteLLM Router] gemini-3.5-flash resolved successfully using key entry ${k + 1} in ${duration}ms.`);
+        console.log(`✅ [LiteLLM Router] [RESPONSE] OK (Status 200 equivalent)`);
+        console.log(`   - Provider: gemini-3.5-flash`);
+        console.log(`   - Key attempt: ${k + 1} succeeded`);
+        console.log(`   - Latency: ${duration}ms`);
+        console.log(`   - Output candidates: ${JSON.stringify(suggestions)}`);
+        
         geminiSuccess = true;
         return {
           suggestions,
@@ -503,7 +560,22 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
         };
       }
     } catch (err: any) {
+      const duration = Date.now() - startTime;
       let errMsg = err.message || String(err);
+      const isTimeout = errMsg.toLowerCase().includes("timeout") || errMsg.toLowerCase().includes("timed out");
+      
+      console.error(`❌ [LiteLLM Router] [RESPONSE] Gemini-3.5-flash structured request failed (Latency: ${duration}ms)`);
+      if (isTimeout) {
+        console.error(`   - Error Type: TIMEOUT_ERROR`);
+        console.error(`   - Error Details: ${errMsg}`);
+      } else {
+        console.error(`   - Error Type: API_ERROR`);
+        console.error(`   - Error Details: ${errMsg}`);
+        if (err.stack) {
+          console.error(`   - Error Stack:\n${err.stack}`);
+        }
+      }
+
       if (errMsg.includes("API Key not found") || errMsg.includes("API_KEY_INVALID") || errMsg.toLowerCase().includes("api key is invalid") || errMsg.toLowerCase().includes("invalid api key")) {
         errMsg = "API Key not found or invalid";
       }
@@ -511,14 +583,13 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
         geminiQuotaExceeded = true;
         console.warn("⚠️ [LiteLLM Router] Checked Gemini response indicates resource or rate quota execution limit hit.");
       }
-      console.warn(`⚠️ [LiteLLM Router] Primary model (gemini-3.5-flash) failed/timed out with key index ${k}: ${errMsg}.`);
       lastErr = err;
     }
 
     // Secondary attempt on Gemini using non-structured plain-text completion in case schema/JSON mode throws
     if (suggestions.length === 0) {
       try {
-        console.log(`🤖 [LiteLLM Router] Retrying gemini-3.5-flash using plain-text prompt without schema constraints (using key entry ${k + 1})...`);
+        console.log(`🤖 [LiteLLM Router] [RETRY] Falling back to plain-text prompt without schema constraints (key index ${k + 1})...`);
         const ai = new GoogleGenAI({
           apiKey: activeKey,
           httpOptions: {
@@ -528,6 +599,7 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
           }
         });
 
+        console.log("📈 [LiteLLM Router] [REQUEST] Dispatching plain text generateContent to Gemini...");
         const timeoutTextPromise = new Promise<{ text: string }>((_, reject) => 
           setTimeout(() => reject(new Error("Primary text fallback timed out (25s limit reached).")), 25000)
         );
@@ -558,10 +630,15 @@ Based on the latest fan query and celebrity facts above, list exactly ${desiredR
         const lines = result.text.split("\n")
           .map(l => l.replace(/^\d+\.\s*/, "").trim().replace(/^["']|["']$/g, "").trim())
           .filter(l => l.length > 0);
+        
         if (lines.length > 0) {
           suggestions = lines.slice(0, desiredRepliesCount);
           const duration = Date.now() - startTime;
-          console.log(`✅ [LiteLLM Router] gemini-3.5-flash plain-text fallback resolved successfully using key entry ${k + 1} in ${duration}ms.`);
+          console.log(`✅ [LiteLLM Router] [RESPONSE] OK (Status 200 equivalent)`);
+          console.log(`   - Provider: gemini-3.5-flash (Plain-Text mode)`);
+          console.log(`   - Latency: ${duration}ms`);
+          console.log(`   - Output candidates: ${JSON.stringify(suggestions)}`);
+          
           geminiSuccess = true;
           return {
             suggestions,
@@ -573,33 +650,52 @@ Based on the latest fan query and celebrity facts above, list exactly ${desiredR
           };
         }
       } catch (err: any) {
+        const duration = Date.now() - startTime;
         let errMsg = err.message || String(err);
-        if (errMsg.includes("API Key not found") || errMsg.includes("API_KEY_INVALID") || errMsg.toLowerCase().includes("api key is invalid") || errMsg.toLowerCase().includes("invalid api key")) {
-          errMsg = "API Key not found or invalid";
+        const isTimeout = errMsg.toLowerCase().includes("timeout") || errMsg.toLowerCase().includes("timed out");
+        
+        console.error(`❌ [LiteLLM Router] [RESPONSE] Gemini-3.5-flash plain-text request failed (Latency: ${duration}ms)`);
+        if (isTimeout) {
+          console.error(`   - Error Type: TIMEOUT_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+        } else {
+          console.error(`   - Error Type: API_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+          if (err.stack) {
+            console.error(`   - Error Stack:\n${err.stack}`);
+          }
         }
+        
         if (errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("exhausted") || errMsg.toLowerCase().includes("429") || errMsg.toLowerCase().includes("resource_exhausted") || errMsg.toLowerCase().includes("limit exceeded")) {
           geminiQuotaExceeded = true;
         }
-        console.warn(`⚠️ [LiteLLM Router] Primary model plain text generation failed with key index ${k}: ${errMsg}.`);
         lastErr = err;
       }
     }
   }
 
   // 2. FALLBACK MODEL: groq/llama-3.3-70b-versatile with automatic schema parsing and failover logs
-  if (groqApiKey && groqApiKey !== "undefined" && groqApiKey.trim() !== "") {
-    try {
-      console.log(`⚡ [LiteLLM Router] Active failover mapping in progress! Dispatching request to Groq LLaMA 3.3 70B...`);
-      const payload = {
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: `${platformInstruction}\n\nCRITICAL ENRICHED CONTEXT FACTS:\n${profileContext}`
-          },
-          {
-            role: "user",
-            content: `
+  if (!geminiSuccess) {
+    console.warn("⚠️ [LiteLLM Router] [FALLBACK ACTIVATED] Primary Gemini routing block failed or timed out.");
+    console.warn(`   - Reason for fallback trigger: ${lastErr?.message || "All Gemini API key attempts failed."}`);
+
+    if (groqApiKey && groqApiKey !== "undefined" && groqApiKey.trim() !== "") {
+      const groqClean = groqApiKey.trim().replace(/^["']|["']$/g, "").trim();
+      const startTimeGroq = Date.now();
+      try {
+        console.log(`⚡ [LiteLLM Router] [INITIALIZATION] Preparing Groq fallover block (model: llama-3.3-70b-versatile)...`);
+        console.log(`   - Groq API Key Masked: ${groqClean.slice(0, 6)}...${groqClean.slice(-4)}`);
+        
+        const payload = {
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: `${platformInstruction}\n\nCRITICAL ENRICHED CONTEXT FACTS:\n${profileContext}`
+            },
+            {
+              role: "user",
+              content: `
 Conversation chat logs:
 ${formattedHistory}
 
@@ -610,69 +706,93 @@ Based on the official celebrity instructions and facts above, generate exactly $
 Format the output as a clean, standardized JSON array containing exactly ${desiredRepliesCount} string candidates of premium answers:
 ["option 1", "option 2", ...]
 `
-          }
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" }
-      };
-
-      const controller = new AbortController();
-      const signalTimeoutId = setTimeout(() => controller.abort(), 25000); // 25 seconds strict timeout protection
-
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${groqApiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-
-      clearTimeout(signalTimeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Groq server returned rate-limited or error HTTP status code: ${response.status}`);
-      }
-
-      const body: any = await response.json();
-      const rawText = body?.choices?.[0]?.message?.content || "[]";
-      
-      let parsed = JSON.parse(rawText);
-      // Seamlessly resolve typical JSON schemas outputted by LLaMA models
-      if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.suggestions)) {
-        parsed = parsed.suggestions;
-      } else if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.replies)) {
-        parsed = parsed.replies;
-      } else if (parsed && !Array.isArray(parsed)) {
-        const potentialArr = Object.values(parsed).find(v => Array.isArray(v));
-        if (potentialArr) parsed = potentialArr;
-      }
-
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        suggestions = parsed.slice(0, desiredRepliesCount);
-        const duration = Date.now() - startTime;
-        console.log(`✅ [LiteLLM Router] Fallback model groq/llama-3.3-70b-versatile successfully generated replies in ${duration}ms!`);
-        return {
-          suggestions,
-          provider: "groq",
-          responseTime: duration,
-          fallbackActivated: true,
-          status: "success",
-          geminiQuotaExceeded: geminiQuotaExceeded
+            }
+          ],
+          temperature: 0.7,
+          response_format: { type: "json_object" }
         };
+
+        console.log("📈 [LiteLLM Router] [REQUEST] Dispatching POST request to Groq HTTP endpoint...");
+        const controller = new AbortController();
+        const signalTimeoutId = setTimeout(() => controller.abort(), 25000); // 25 seconds strict timeout protection
+
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${groqClean}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+
+        clearTimeout(signalTimeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Groq server returned rate-limited or error HTTP status code: ${response.status} - ${response.statusText}`);
+        }
+
+        const body: any = await response.json();
+        const rawText = body?.choices?.[0]?.message?.content || "[]";
+        
+        let parsed = JSON.parse(rawText);
+        // Seamlessly resolve typical JSON schemas outputted by LLaMA models
+        if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.suggestions)) {
+          parsed = parsed.suggestions;
+        } else if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.replies)) {
+          parsed = parsed.replies;
+        } else if (parsed && !Array.isArray(parsed)) {
+          const potentialArr = Object.values(parsed).find(v => Array.isArray(v));
+          if (potentialArr) parsed = potentialArr;
+        }
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          suggestions = parsed.slice(0, desiredRepliesCount);
+          const duration = Date.now() - startTime;
+          const groqDuration = Date.now() - startTimeGroq;
+          console.log(`✅ [LiteLLM Router] [RESPONSE] OK (Status 200 equivalent via Groq)`);
+          console.log(`   - Provider: groq/llama-3.3-70b-versatile`);
+          console.log(`   - Groq Latency: ${groqDuration}ms`);
+          console.log(`   - Total Latency: ${duration}ms`);
+          console.log(`   - Output candidates: ${JSON.stringify(suggestions)}`);
+          
+          return {
+            suggestions,
+            provider: "groq",
+            responseTime: duration,
+            fallbackActivated: true,
+            status: "success",
+            geminiQuotaExceeded: geminiQuotaExceeded
+          };
+        }
+      } catch (err: any) {
+        const duration = Date.now() - startTime;
+        let errMsg = err.message || String(err);
+        const isTimeout = errMsg.toLowerCase().includes("timeout") || errMsg.toLowerCase().includes("timed out") || errMsg.toLowerCase().includes("aborted");
+        
+        console.error(`❌ [LiteLLM Router] [RESPONSE] Fallback Groq LLaMA model failed (Latency: ${duration}ms)`);
+        if (isTimeout) {
+          console.error(`   - Error Type: TIMEOUT_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+        } else {
+          console.error(`   - Error Type: API_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+          if (err.stack) {
+            console.error(`   - Error Stack:\n${err.stack}`);
+          }
+        }
+        lastErr = err;
       }
-    } catch (err: any) {
-      console.error(`❌ [LiteLLM Router] Fallback model (groq/llama-3.3-70b-versatile) failed: ${err.message}.`);
-      lastErr = err;
+    } else {
+      console.warn("⚠️ [LiteLLM Router] Fallback Groq API key is not configured or empty. Fall routing skipped.");
     }
-  } else {
-    console.warn("⚠️ [LiteLLM Router] Fallback Groq API key is not configured yet. Fall routing skipped.");
   }
 
   // 3. SECURE FALLBACK CONDUIT: Dispense highly intelligent offline suggestions using regex query patterns so no error gets exposed
   const duration = Date.now() - startTime;
-  console.error("🚨 [LiteLLM Router] CRITICAL EXHAUSTION: All cloud AI generators failed. Servicing resilient human fallback arrays.");
+  console.error(`🚨 [LiteLLM Router] CRITICAL EXHAUSTION: All cloud AI generators failed. Servicing resilient human fallback arrays in ${duration}ms.`);
+  console.error(`   - Concluding Exception Trace (Detailed logs kept server-side only):`, lastErr?.message || String(lastErr));
+  
   return {
     suggestions: [],
     provider: "demo",
