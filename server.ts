@@ -55,10 +55,28 @@ if (rawGroq) {
 } else {
   console.log("  - GROQ_API_KEY: MISSING ❌");
 }
+
+export function isValidFirebasePrivateKey(key: string | undefined): boolean {
+  if (!key) return false;
+  const clean = key.trim();
+  return clean.includes("-----BEGIN PRIVATE KEY-----") && clean.includes("-----END PRIVATE KEY-----");
+}
+
+const rawFirebaseKey = process.env.FIREBASE_PRIVATE_KEY;
+if (rawFirebaseKey) {
+  const isVal = isValidFirebasePrivateKey(rawFirebaseKey);
+  console.log(`  - FIREBASE_PRIVATE_KEY: EXISTS (Length: ${rawFirebaseKey.length}, Valid PEM: ${isVal})`);
+} else {
+  console.log("  - FIREBASE_PRIVATE_KEY: MISSING ❌");
+}
+
+const dbIdLog = process.env.FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || "(default)";
+console.log(`  - FIRESTORE_DATABASE_ID: Target database ID is "${dbIdLog}"`);
 console.log("==================================================");
 
 // Initialize Firebase Admin lazily to avoid crashing on startup if keys are missing
 let db: any = null;
+let connectionAttemptsCount = 0;
 
 function getDatabaseId() {
   // 1. Check environment variables (precedence)
@@ -104,17 +122,35 @@ function getProjectId() {
   return "placeholder-project-id";
 }
 
-function getDb() {
-  if (db) return db;
-  
+/**
+ * Reset cached DB connection to force a clean reconnection.
+ * Implements "automatic reconnection logic" when query failures are encountered.
+ */
+export function resetCachedDb() {
+  console.warn("🧹 [DATABASE] Resetting active cached Firestore master instance.");
+  db = null;
+}
+
+/**
+ * Retrieves the cached connection to Firestore or initializes a new one.
+ * Implements strict caching, single-connection reuse, environment-driven settings, and robust logging.
+ */
+function getDb(forceRebuild = false) {
+  if (db && !forceRebuild) {
+    return db;
+  }
+
+  connectionAttemptsCount++;
+  console.log(`🛰️ [DATABASE] Attempting connection initialization (Attempt #${connectionAttemptsCount}, ForceRebuild=${forceRebuild})...`);
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
   const projectId = getProjectId();
+  const startTime = performance.now();
 
   // If we are on Vercel or any non-Google cloud environment and do not have FIREBASE_PRIVATE_KEY, do not initialize Admin SDK.
   // This completely avoids hanging Firestore connections due to default credential lookup timeouts.
   const isGoogleEnvironment = process.env.K_SERVICE || process.env.K_REVISION || process.env.GOOGLE_CLOUD_PROJECT;
   if (!privateKey && !isGoogleEnvironment) {
-    console.warn("⚠️ No FIREBASE_PRIVATE_KEY detected outside of Google Cloud. Skipping Admin SDK to prevent auth hangs, using lightweight REST fallback instead.");
+    console.warn("⚠️ [DATABASE] No FIREBASE_PRIVATE_KEY detected outside of Google Cloud. Skipping Admin SDK initialization to prevent auth hangs, using fallback methods.");
     return null;
   }
 
@@ -130,17 +166,17 @@ function getDb() {
           credential: admin.credential.cert(adminConfig),
           databaseURL: `https://${projectId}.firebaseio.com`
         });
-        console.log(`✅ Firebase Admin successfully initialized using private key cert credentials for project: ${projectId}`);
+        console.log(`✅ [DATABASE] Firebase Admin successfully initialized using private key cert credentials for project: ${projectId}`);
       } else {
         // Fallback to default application credentials natively available in Cloud Run env
         admin.initializeApp({
           projectId: projectId,
           databaseURL: `https://${projectId}.firebaseio.com`
         });
-        console.log(`✅ Firebase Admin successfully initialized using Google Application Default Credentials for project: ${projectId}`);
+        console.log(`✅ [DATABASE] Firebase Admin successfully initialized using Google Application Default Credentials for project: ${projectId}`);
       }
-    } catch (error) {
-      console.error("❌ Failed to initialize Firebase Admin:", error);
+    } catch (error: any) {
+      console.error("❌ [DATABASE] Failed to initialize Firebase Admin app framework:", error);
       return null;
     }
   }
@@ -148,13 +184,101 @@ function getDb() {
   try {
     const databaseId = getDatabaseId();
     db = getFirestore(admin.apps[0], databaseId);
-    console.log(`✅ Firebase Admin SDK successfully bound to custom firestore databaseId: ${databaseId}`);
+
+    // Optimize settings for Serverless Vercel Compatibility
+    try {
+      const isVercelHost = !!process.env.VERCEL;
+      db.settings({
+        preferRest: isVercelHost, // Converts gRPC stream sockets into simple, decoupled HTTP requests avoiding cold/restore connection hangs
+        ignoreUndefinedProperties: true
+      });
+      console.log(`✅ [DATABASE] Configured settings: preferRest=${isVercelHost}, ignoreUndefinedProperties=true`);
+    } catch (settingsError: any) {
+      console.warn(`⚠️ [DATABASE] Settings adjustment declined by Cloud Firestore driver: ${settingsError.message}. Appending standard configuration.`);
+      try {
+        db.settings({ ignoreUndefinedProperties: true });
+      } catch (e) {
+        // Safe sink
+      }
+    }
+
+    const duration = (performance.now() - startTime).toFixed(1);
+    console.log(`✅ [DATABASE] Success! DB connection established and cached successfully in ${duration}ms.`);
   } catch (err: any) {
-    console.error("❌ Failed to get Firestore DB with custom databaseId. Falling back to default database:", err);
-    db = admin.firestore();
+    console.error(`❌ [DATABASE] Failed to bind custom Firestore databaseId: ${err.message}`);
+    // Fallback attempt to native default db client
+    try {
+      db = admin.firestore();
+      console.log("ℹ️ [DATABASE] Bound default fallback Firestore interface successfully.");
+    } catch (fallbackErr: any) {
+      console.error("❌ [DATABASE] Critical Fallback Firestore binder failure:", fallbackErr.message);
+      db = null;
+    }
   }
 
   return db;
+}
+
+/**
+ * Execute a Firestore database task with a timeout limit and retries.
+ * Implements "database response timing logs", "connection timeout handling", and "automatic reconnection logic".
+ */
+export async function withDbTimeoutAndRetry<T>(
+  taskDescription: string,
+  fn: (firestore: any) => Promise<T>,
+  maxRetries = 2,
+  timeoutMs = 7000
+): Promise<T> {
+  let attempt = 0;
+  
+  while (attempt <= maxRetries) {
+    attempt++;
+    const queryStartTime = performance.now();
+    const firestore = getDb();
+    
+    if (!firestore) {
+      throw new Error("Local Database Service Offline (Null Firestore Instance)");
+    }
+
+    try {
+      // Wrap query in Promise.race with a timeout promise
+      const queryPromise = fn(firestore);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout: Operation exceeded ${timeoutMs}ms limit.`)), timeoutMs)
+      );
+
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      const duration = (performance.now() - queryStartTime).toFixed(1);
+      
+      console.log(`⏱️ [DATABASE_QUERY] "${taskDescription}" completed successfully. Elapsed: ${duration}ms (Attempt #${attempt}/${maxRetries + 1})`);
+      return result;
+    } catch (error: any) {
+      const duration = (performance.now() - queryStartTime).toFixed(1);
+      console.error(`❌ [DATABASE_QUERY] "${taskDescription}" failed after ${duration}ms on attempt #${attempt}: ${error.message}`);
+      
+      // If it is a network error, timeout, or hung connection warning, trigger a cache reset to reconnect
+      const isConnectionIssue = 
+        error.message.includes("Timeout") || 
+        error.message.includes("UNAVAILABLE") || 
+        error.message.includes("DEADLINE_EXCEEDED") ||
+        error.message.includes("socket") ||
+        error.message.includes("connection");
+
+      if (isConnectionIssue) {
+        console.warn(`🔄 [DATABASE] Connection event issue detected. Flushing connection cache and preparing reconnect.`);
+        resetCachedDb();
+      }
+
+      if (attempt > maxRetries) {
+        throw new Error(`Database transaction timed out or failed permanently: ${error.message}`);
+      }
+      
+      // Delay before next attempt slightly
+      await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+    }
+  }
+  
+  throw new Error("Database query processing failed.");
 }
 
 // Convert Firestore REST document formats to dynamic JavaScript JSON values
@@ -191,15 +315,21 @@ function parseFirestoreRestDoc(doc: any): any {
 
 // Universal fetch utility that reads from Firestore Admin SDK or falls back to production REST API with user JWT context Bearer Token
 async function fetchDocumentWithFallback(collectionName: string, docId: string, token: string, firestore: any) {
+  const queryStartTime = performance.now();
+  console.log(`⏱️ [DATABASE_QUERY] fetchDocumentWithFallback initiated for ${collectionName}/${docId}...`);
+
   // 1. Try custom firestore database ID (e.g. sandbox firestore)
   if (firestore) {
     try {
       const docSnap = await firestore.collection(collectionName).doc(docId).get();
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
       if (docSnap.exists) {
+        console.log(`✅ [DATABASE_QUERY] fetchDocumentWithFallback loaded successfully from Custom DB in ${elapsed}ms.`);
         return docSnap.data();
       }
     } catch (err: any) {
-      console.warn(`⚠️ Firebase Admin fetch failed for custom DB ${collectionName}/${docId}: ${err.message}.`);
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
+      console.warn(`⚠️ [DATABASE_QUERY] Firebase Admin fetch failed for custom DB ${collectionName}/${docId} in ${elapsed}ms: ${err.message}. Trying defaults...`);
     }
   }
 
@@ -209,14 +339,16 @@ async function fetchDocumentWithFallback(collectionName: string, docId: string, 
       const defaultDb = admin.firestore();
       if (defaultDb && defaultDb !== firestore) {
         const defaultDocSnap = await defaultDb.collection(collectionName).doc(docId).get();
+        const elapsed = (performance.now() - queryStartTime).toFixed(1);
         if (defaultDocSnap.exists) {
-          console.log(`✅ [FAILSAFE DEFAULT DB] Loaded ${collectionName}/${docId} successfully from (default) database.`);
+          console.log(`✅ [DATABASE_QUERY] fetchDocumentWithFallback loaded ${collectionName}/${docId} successfully from (default) database in ${elapsed}ms.`);
           return defaultDocSnap.data();
         }
       }
     }
   } catch (err: any) {
-    console.warn(`⚠️ Firebase Admin fetch failed for default DB ${collectionName}/${docId}: ${err.message}.`);
+    const elapsed = (performance.now() - queryStartTime).toFixed(1);
+    console.warn(`⚠️ [DATABASE_QUERY] Firebase Admin fetch failed for default DB ${collectionName}/${docId} in ${elapsed}ms: ${err.message}.`);
   }
 
   // 3. Fallback to REST API using custom database ID
@@ -231,16 +363,18 @@ async function fetchDocumentWithFallback(collectionName: string, docId: string, 
           "Authorization": `Bearer ${token}`
         }
       });
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
       if (response.ok) {
         const json = await response.json();
         const parsed = parseFirestoreRestDoc(json);
-        console.log(`✅ [FAILSAFE REST] Loaded ${collectionName}/${docId} successfully.`);
+        console.log(`✅ [FAILSAFE REST] Loaded ${collectionName}/${docId} successfully via REST in ${elapsed}ms.`);
         return parsed;
       } else {
-        console.error(`❌ [FAILSAFE REST] Failed to load ${collectionName}/${docId}. Status: ${response.status} - ${response.statusText}`);
+        console.error(`❌ [FAILSAFE REST] Failed to load ${collectionName}/${docId} via REST after ${elapsed}ms. Status: ${response.status} - ${response.statusText}`);
       }
     } catch (err: any) {
-      console.error(`❌ [FAILSAFE REST] Error fetching ${collectionName}/${docId} from REST API:`, err);
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
+      console.error(`❌ [FAILSAFE REST] Error fetching ${collectionName}/${docId} from REST API after ${elapsed}ms:`, err);
     }
 
     // 4. Fallback to REST API using "(default)" database ID
@@ -253,10 +387,11 @@ async function fetchDocumentWithFallback(collectionName: string, docId: string, 
           "Authorization": `Bearer ${token}`
         }
       });
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
       if (response.ok) {
         const json = await response.json();
         const parsed = parseFirestoreRestDoc(json);
-        console.log(`✅ [FAILSAFE REST DEFAULT DB] Loaded ${collectionName}/${docId} successfully.`);
+        console.log(`✅ [FAILSAFE REST DEFAULT DB] Loaded ${collectionName}/${docId} successfully via REST standard in ${elapsed}ms.`);
         return parsed;
       }
     } catch (err: any) {
@@ -269,6 +404,50 @@ async function fetchDocumentWithFallback(collectionName: string, docId: string, 
 const app = express();
 
 app.use(express.json());
+
+// 1. Request Timeout & Database Resiliency Middleware
+app.use((req, res, next) => {
+  // Set request timeout to 12 seconds to prevent Vercel functions from hanging indefinitely
+  const requestTimeoutLimit = 12000;
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error(`⚠️ [TIMEOUT] Request ${req.method} ${req.url} timed out after ${requestTimeoutLimit}ms.`);
+      res.status(503).json({
+        success: false,
+        error: "Our database connection is momentarily running slow or has timed out. Please refresh or try again in a moment."
+      });
+    }
+  }, requestTimeoutLimit);
+
+  // Clear timeout upon request completion
+  res.on('finish', () => clearTimeout(timeoutId));
+  res.on('close', () => clearTimeout(timeoutId));
+  next();
+});
+
+// 2. Friendly Database Connection Status Health Check middleware for standard requests
+app.use("/api", (req, res, next) => {
+  // Skip public health endpoint to prevent recursive boots
+  if (req.path === "/health" || req.path === "/api/health") {
+    return next();
+  }
+
+  // Attempt to check if DB is initialized or config exists
+  try {
+    const firestore = getDb();
+    if (!firestore && !process.env.GEMINI_API_KEY) {
+      // Only error out if we are not equipped to fall back properly or if DB is absolutely required
+      console.warn(`⚠️ [DATABASE] Active request for ${req.path} without database presence.`);
+    }
+  } catch (err: any) {
+    console.error(`❌ [DATABASE] Middleware caught db connection error: ${err.message}`);
+    return res.status(503).json({
+      success: false,
+      error: "The database connection is temporarily offline. Please try again."
+    });
+  }
+  next();
+});
 
 // API Routes
 app.get(["/api/health", "/health"], (req, res) => {
@@ -2526,15 +2705,20 @@ if (!process.env.VERCEL) {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", async () => {
     console.log(`[SERVER] 🚀 Premium System running at http://localhost:${PORT}`);
     
-    // Initialize Site Settings in background
+    // Validate database connectivity explicitly on startup
+    console.log("🛰️ [DATABASE] Running startup connection check...");
     const firestore = getDb();
     if (firestore) {
-      console.log("[FIREBASE] Admin SDK connected. Checking site settings...");
-      const settingsRef = firestore.collection('siteSettings').doc('global');
-      settingsRef.get().then(async (settingsDoc) => {
+      const startupCheckStart = performance.now();
+      try {
+        const settingsRef = firestore.collection('siteSettings').doc('global');
+        const settingsDoc = await settingsRef.get();
+        const checkDuration = (performance.now() - startupCheckStart).toFixed(1);
+        console.log(`✅ [DATABASE] Startup connection check SUCCESS! Global settings read correctly in ${checkDuration}ms.`);
+        
         if (!settingsDoc.exists) {
           console.log("[FIREBASE] Initializing global site settings...");
           await settingsRef.set({
@@ -2589,11 +2773,12 @@ if (!process.env.VERCEL) {
           console.warn("[GROQ-DIAGNOSTIC] ⚠️ No GROQ_API_KEY configured in environment or administrative database.");
         }
         
-      }).catch(err => {
-        console.error("[FIREBASE] Failed to initialize settings:", err);
-      });
+      } catch (err: any) {
+        console.error(`❌ [DATABASE] Startup connection check failed or timed out: ${err.message}`);
+        console.warn("⚠️ [DATABASE] Server is starting up with degraded database accessibility. Restoring with REST fallbacks where possible.");
+      }
     } else {
-      console.warn("[FIREBASE] Admin SDK failed to initialize. Check your FIREBASE_PRIVATE_KEY secret.");
+      console.warn("[FIREBASE] Admin SDK failed to initialize during startup connection check. Check your FIREBASE_PRIVATE_KEY secret.");
     }
   });
 }
