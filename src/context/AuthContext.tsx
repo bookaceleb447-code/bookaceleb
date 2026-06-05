@@ -5,7 +5,7 @@ import { auth, db } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
-  role: 'user' | 'celebrity' | 'superadmin' | null;
+  role: 'user' | 'fan' | 'celebrity' | 'demoCelebrity' | 'superadmin' | null;
   loading: boolean;
 }
 
@@ -13,7 +13,7 @@ const AuthContext = createContext<AuthContextType>({ user: null, role: null, loa
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<'user' | 'celebrity' | 'superadmin' | null>(null);
+  const [role, setRole] = useState<'user' | 'fan' | 'celebrity' | 'demoCelebrity' | 'superadmin' | null>(null);
   const [loading, setLoading] = useState(true);
   const [authControls, setAuthControls] = useState<any>(null);
 
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const isGlobalDisabled = authControls.globalAuthEnabled === false;
     const isCelebLoginBlocked = role === 'celebrity' && authControls.celebrityLoginEnabled === false;
-    const isFanLoginBlocked = role === 'user' && authControls.fanLoginEnabled === false;
+    const isFanLoginBlocked = (role === 'user' || role === 'fan') && authControls.fanLoginEnabled === false;
 
     if (isGlobalDisabled || isCelebLoginBlocked || isFanLoginBlocked) {
       console.warn(`[AuthLock Session Enforcement] Active lock triggered logout. Role: ${role}, GlobalDisabled: ${isGlobalDisabled}, CelebLoginBlocked: ${isCelebLoginBlocked}, FanLoginBlocked: ${isFanLoginBlocked}`);
@@ -71,15 +71,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser(null);
                 setRole(null);
               } else {
-                setRole(data?.role || 'user');
+                setRole(data?.role || 'fan');
               }
             } else {
-              setRole('user');
+              setRole('fan');
             }
             setLoading(false);
           }, (err) => {
             console.error('Error in real-time user profile sync:', err);
-            setRole('user');
+            setRole('fan');
             setLoading(false);
           });
         }

@@ -8,7 +8,7 @@ import { getFriendlyLoginError } from '../../lib/authErrors';
 import { AuthLockScreen } from '../../components/AuthLockScreen';
 
 interface LoginPageProps {
-  forceRole?: 'celebrity' | 'superadmin' | 'user';
+  forceRole?: 'celebrity' | 'superadmin' | 'user' | 'fan';
 }
 
 export const LoginPage = ({ forceRole }: LoginPageProps) => {
@@ -119,7 +119,7 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
 
   const isGlobalLocked = authControls && authControls.globalAuthEnabled === false;
   const isCelebLoginLocked = authControls && authControls.celebrityLoginEnabled === false && forceRole === 'celebrity';
-  const isFanLoginLocked = authControls && authControls.fanLoginEnabled === false && (!forceRole || forceRole === 'user');
+  const isFanLoginLocked = authControls && authControls.fanLoginEnabled === false && (!forceRole || forceRole === 'user' || forceRole === 'fan');
 
   // Super Admin bypasses all locks
   const isLocked = forceRole !== 'superadmin' && (isGlobalLocked || isCelebLoginLocked || isFanLoginLocked);

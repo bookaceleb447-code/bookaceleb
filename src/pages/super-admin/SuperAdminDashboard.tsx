@@ -31,6 +31,9 @@ export const SuperAdminDashboard = () => {
     const [allCelebs, setAllCelebs] = useState<any[]>([]); // Real Master list of celebrity profiles (from celebrityProfiles)
     const [showcaseCards, setShowcaseCards] = useState<any[]>([]); // Curated landing page list (from landingPageShowcase)
     const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [allBookings, setAllBookings] = useState<any[]>([]);
+    const [allMemberships, setAllMemberships] = useState<any[]>([]);
+    const [allDonations, setAllDonations] = useState<any[]>([]);
     const [pendingUpgrades, setPendingUpgrades] = useState<any[]>([]);
     const [pendingAiUpgrades, setPendingAiUpgrades] = useState<any[]>([]);
     const [aiUsageLogs, setAiUsageLogs] = useState<any[]>([]);
@@ -241,6 +244,27 @@ export const SuperAdminDashboard = () => {
             console.warn("aiUsage collection subscription issue:", err);
         });
 
+        // Real-time Bookings list
+        const unsubBookings = onSnapshot(collection(db, 'bookings'), (snap) => {
+            setAllBookings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (err) => {
+            console.log("Error loading bookings direct data:", err);
+        });
+
+        // Real-time Memberships list
+        const unsubMemberships = onSnapshot(collection(db, 'memberships'), (snap) => {
+            setAllMemberships(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (err) => {
+            console.log("Error loading memberships data:", err);
+        });
+
+        // Real-time Donations list
+        const unsubDonations = onSnapshot(collection(db, 'donations'), (snap) => {
+            setAllDonations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (err) => {
+            console.log("Error loading donations data:", err);
+        });
+
         return () => {
             unsubSettings();
             unsubGemini();
@@ -254,19 +278,62 @@ export const SuperAdminDashboard = () => {
             unsubGroq();
             unsubAiUsage();
             unsubAuthControls();
+            unsubBookings();
+            unsubMemberships();
+            unsubDonations();
         };
     }, []);
 
+    // Exclude demo celebrity IDs helper
+    const isDemoId = (celebId: string) => {
+        if (!celebId) return false;
+        if (celebId.startsWith('demo-')) return true;
+        
+        // Find in all users
+        const u = allUsers.find(user => (user.uid || user.id) === celebId);
+        if (u && (u.role === 'demoCelebrity' || u.role === 'demo')) return true;
+
+        // Find in all celebs
+        const c = allCelebs.find(clb => (clb.celebId || clb.id) === celebId);
+        if (c && (c.role === 'demoCelebrity' || c.isDemo === true)) return true;
+
+        return false;
+    };
+
     // Calculated metrics
-    const totalCelebrities = allCelebs.length;
-    const totalFans = allUsers.filter(u => u.role === 'user').length;
-    const totalPeople = totalCelebrities + allUsers.length;
+    const totalFans = allUsers.filter(u => u.role === 'fan' || u.role === 'user').length;
+    const totalCelebrities = allUsers.filter(u => u.role === 'celebrity' && !isDemoId(u.uid || u.id)).length;
+    const totalDemoCelebrities = allUsers.filter(u => u.role === 'demoCelebrity' || isDemoId(u.uid || u.id)).length;
+    const totalPeople = totalFans + totalCelebrities; // Excluding demo completely from Platform aggregate!
     
     // VIP sum paid
     // Each approved (isLocked === false) celebrity represents one activation fee paid.
-    const activeVipCount = allCelebs.filter(c => !c.isLocked).length;
+    const activeVipCount = allCelebs.filter(c => !c.isLocked && !isDemoId(c.celebId || c.id)).length;
     const calculatedVipRevenue = activeVipCount * (siteSettings?.activationFee || 499);
     const currencySym = siteSettings?.currency === 'NGN' ? '₦' : '$';
+
+    // Calculate Completed Bookings Revenue
+    const completedBookingsRevenue = allBookings
+        .filter(b => b.status === 'approved' && !isDemoId(b.celebId))
+        .reduce((sum, b) => sum + (Number(b.totalPrice) || 0), 0);
+
+    // Calculate Verified Membership Plan Payments Revenue
+    const verifiedMembershipsRevenue = allMemberships
+        .filter(m => m.status === 'approved' && !isDemoId(m.celebId))
+        .reduce((sum, m) => sum + (Number(m.price) || 0), 0);
+
+    // Calculate Verified Donations Revenue
+    const verifiedDonationsRevenue = allDonations
+        .filter(d => d.status === 'approved' && !isDemoId(d.celebId))
+        .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+
+    // Calculate AI Premium Upgrades Revenue
+    const activeAiPremiumCount = allCelebs.filter(c => (c.isAiSubscribed === true || c.aiPremium === true) && !isDemoId(c.celebId || c.id)).length;
+    const aiSubAmount = Number(siteSettings?.aiSubAmount) || 150;
+    const totalAiPremiumRevenue = activeAiPremiumCount * aiSubAmount;
+
+    // Total Platform Revenue Accumulator
+    const totalPlatformRevenue = completedBookingsRevenue + verifiedMembershipsRevenue + verifiedDonationsRevenue + calculatedVipRevenue + totalAiPremiumRevenue;
 
     // LiteLLM AI Gateway metrics
     const totalAiRequests = aiUsageLogs.length;
@@ -324,6 +391,7 @@ export const SuperAdminDashboard = () => {
                 fanCardPrice: Number(demoFanCard),
                 isLocked: false, // pre-verified
                 isVisible: true,
+                role: 'demoCelebrity',
                 referralLink: `${window.location.origin}/ref/dm/${slug}`,
                 createdAt: new Date().toISOString()
             };
@@ -335,7 +403,7 @@ export const SuperAdminDashboard = () => {
                 uid: docId,
                 email: `${demoName.toLowerCase().replace(/\s+/g, '')}@demo-idols.com`,
                 displayName: demoName,
-                role: 'celebrity',
+                role: 'demoCelebrity',
                 createdAt: new Date().toISOString()
             });
 
@@ -347,6 +415,71 @@ export const SuperAdminDashboard = () => {
             setDemoIsTrending(false);
         } catch (err: any) {
             alert(err.message);
+        }
+    };
+
+    const [migrationLoading, setMigrationLoading] = useState(false);
+    const [migrationProgress, setMigrationProgress] = useState<string | null>(null);
+
+    // Dynamic detection of unmigrated accounts
+    const hasLegacyAccounts = allUsers.some(u => 
+        u.role === 'user' || 
+        (u.uid?.startsWith('demo-') && u.role !== 'demoCelebrity') ||
+        (u.email?.endsWith('@demo-idols.com') && u.role !== 'demoCelebrity')
+    );
+
+    const handleRunFullMigration = async () => {
+        setMigrationLoading(true);
+        setMigrationProgress('Initializing directory alignment...');
+        try {
+            let processedUsersCount = 0;
+            let processedCelebsCount = 0;
+
+            // Iterate allUsers
+            for (const u of allUsers) {
+                const userId = u.uid || u.id;
+                if (!userId) continue;
+
+                let targetRole = u.role || 'fan';
+                if (u.email === 'bookaceleb447@gmail.com') {
+                    targetRole = 'superadmin';
+                } else if (userId.startsWith('demo-') || u.email?.endsWith('@demo-idols.com') || u.email?.includes('demo')) {
+                    targetRole = 'demoCelebrity';
+                } else if (u.role === 'user') {
+                    targetRole = 'fan';
+                }
+
+                if (u.role !== targetRole) {
+                    await updateDoc(doc(db, 'users', userId), { role: targetRole });
+                    processedUsersCount++;
+                }
+            }
+
+            // Iterate allCelebs
+            for (const c of allCelebs) {
+                const celebId = c.celebId || c.id;
+                if (!celebId) continue;
+
+                let targetRole = c.role || 'celebrity';
+                const companionUserDoc = allUsers.find(u => u.uid === celebId || u.id === celebId);
+                
+                if (celebId.startsWith('demo-') || c.email?.endsWith('@demo-idols.com') || companionUserDoc?.role === 'demoCelebrity') {
+                    targetRole = 'demoCelebrity';
+                }
+
+                if (c.role !== targetRole) {
+                    await updateDoc(doc(db, 'celebrityProfiles', celebId), { role: targetRole });
+                    processedCelebsCount++;
+                }
+            }
+
+            setMigrationProgress(`Success: Reconciled ${processedUsersCount} core accounts and ${processedCelebsCount} profile registries successfully.`);
+            triggerToast('User, Celebrity, and Demo Account separation synced perfectly!');
+        } catch (err: any) {
+            setMigrationProgress(`Error during alignment: ${err.message}`);
+            alert(err.message);
+        } finally {
+            setMigrationLoading(false);
         }
     };
 
@@ -692,9 +825,11 @@ export const SuperAdminDashboard = () => {
             const userId = u.uid || u.id || '';
             if (!userId) return;
 
-            let roleName = u.role || 'user';
+            let roleName = u.role || 'fan';
             if (u.email === 'bookaceleb447@gmail.com') {
                 roleName = 'superadmin';
+            } else if (u.role === 'user') {
+                roleName = 'fan';
             }
 
             uniquePeopleMap.set(userId, {
@@ -710,13 +845,15 @@ export const SuperAdminDashboard = () => {
 
         // 2. Overlay celebrities
         allCelebs.forEach((c) => {
-            if (!c.id) return;
-            const existing = uniquePeopleMap.get(c.id);
-            uniquePeopleMap.set(c.id, {
-                id: c.id,
+            const cId = c.celebId || c.id;
+            if (!cId) return;
+            const existing = uniquePeopleMap.get(cId);
+            const isDemo = c.role === 'demoCelebrity' || c.isDemo === true || cId.startsWith('demo-') || existing?.role === 'demoCelebrity';
+            uniquePeopleMap.set(cId, {
+                id: cId,
                 name: c.celebName || existing?.name || 'Celebrity Agent',
                 email: c.email || existing?.email || `${(c.celebName || 'celeb').toLowerCase().replace(/\s+/g, '')}@celeb.com`,
-                role: 'celebrity',
+                role: isDemo ? 'demoCelebrity' : 'celebrity',
                 isBanned: c.isBanned || existing?.isBanned || false,
                 createdAt: c.createdAt || existing?.createdAt || null,
                 details: { ...existing?.details, ...c }
@@ -848,11 +985,38 @@ export const SuperAdminDashboard = () => {
                         {/* 1. Dashboard Tab */}
                         {activeTab === 'dashboard' && (
                             <div className="space-y-10">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                {/* Account Reconciliation & Migration Alert Flag */}
+                                {hasLegacyAccounts && (
+                                    <div className="bg-gradient-to-r from-yellow-500/10 via-amber-500/20 to-orange-500/10 border-2 border-amber-500/40 p-6 sm:p-8 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+                                        <div className="space-y-2 text-center md:text-left">
+                                            <h3 className="text-lg font-display font-black text-amber-400 uppercase tracking-tighter italic flex items-center justify-center md:justify-start gap-2">
+                                                <span>⚠️ SYSTEM RECONCILIATION PRESCRIBED</span>
+                                            </h3>
+                                            <p className="text-xs text-white/70 max-w-xl font-medium leading-relaxed">
+                                                Unmigrated legacy accounts (e.g. role <code className="text-amber-300 font-mono">user</code> or legacy celebrity classifications) are detected on the host. Force separation into <strong>Fans</strong>, <strong>Real Celebrities</strong>, and <strong>Demo Profiles</strong> immediately to stabilize historical analytics graphs.
+                                            </p>
+                                            {migrationProgress && (
+                                                <p className="text-xs text-primary font-mono font-bold mt-2 select-all bg-black/40 px-4 py-2 rounded-xl border border-primary/20 inline-block">
+                                                    {migrationProgress}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={handleRunFullMigration}
+                                            disabled={migrationLoading}
+                                            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-wider text-xs rounded-xl transition-all shadow-xl shadow-amber-500/10 whitespace-nowrap shrink-0 disabled:opacity-50"
+                                        >
+                                            {migrationLoading ? 'Executing Separation...' : 'Harmonize Database'}
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                                     <AdminStatCard label="Total Celebrities Onboard" value={totalCelebrities} sub={`${activeVipCount} Verified • ${totalCelebrities - activeVipCount} Locked`} />
                                     <AdminStatCard label="Total Happy Fans" value={totalFans} sub="Registered users with fan status" />
+                                    <AdminStatCard label="Total Demo Profiles" value={totalDemoCelebrities} sub="Excluded from metrics & billing" />
                                     <AdminStatCard label="Total Platform People" value={totalPeople} sub="Celebrities + Users aggregate" />
-                                    <AdminStatCard label="VIP Access Revenue Gained" value={`${currencySym}${calculatedVipRevenue}`} sub={`From ${activeVipCount} fully approved VIP members`} highlight />
+                                    <AdminStatCard label="Accumulated Revenue Earned" value={`${currencySym}${totalPlatformRevenue}`} sub={`Activation Upgrades + Plan Upgrades + Bookings`} highlight />
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1595,11 +1759,17 @@ export const SuperAdminDashboard = () => {
 
                                     <div className="bg-white/[0.01] border border-white/5 p-8 rounded-[2rem] flex flex-col justify-between">
                                         <div>
-                                            <p className="text-[10px] uppercase font-black text-white/30 tracking-widest">Global Escrow Reserves</p>
-                                            <p className="text-4xl font-display font-black text-white italic tracking-tighter mt-4">{currencySym}{calculatedVipRevenue}</p>
-                                            <p className="text-[9px] uppercase font-mono text-primary font-black tracking-widest mt-2">Treasury balance optimized</p>
+                                            <p className="text-[10px] uppercase font-black text-white/30 tracking-widest">Aggregate Platform Revenue</p>
+                                            <p className="text-4xl font-display font-black text-white italic tracking-tighter mt-4">{currencySym}{totalPlatformRevenue}</p>
+                                            <div className="mt-4 space-y-1.5 font-mono text-[9px] text-white/50">
+                                                <p>• VIP Activations: {currencySym}{calculatedVipRevenue}</p>
+                                                <p>• AI Premium Upgrades: {currencySym}{totalAiPremiumRevenue}</p>
+                                                <p>• Approved Bookings: {currencySym}{completedBookingsRevenue}</p>
+                                                <p>• Approved Memberships: {currencySym}{verifiedMembershipsRevenue}</p>
+                                                <p>• Approved Donations: {currencySym}{verifiedDonationsRevenue}</p>
+                                            </div>
                                         </div>
-                                        <div className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Protocol Sync State: SECURE 100%</div>
+                                        <div className="text-[10px] text-white/20 uppercase font-bold tracking-widest mt-4">Protocol Sync State: SECURE 100%</div>
                                     </div>
                                 </div>
 

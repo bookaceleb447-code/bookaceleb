@@ -54,7 +54,7 @@ export const RegisterPage = () => {
         uid,
         email: formData.email,
         displayName: formData.name,
-        role: 'user',
+        role: 'fan',
         referredBy,
         createdAt: new Date().toISOString(),
       });
