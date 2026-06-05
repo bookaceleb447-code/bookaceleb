@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { uploadToCloudinary } from '../../lib/cloudinary';
 import { BUILT_IN_TEMPLATES } from '../../lib/autoReply';
-import { checkAndExpireAiPremium } from '../../lib/premiumCheck';
+import { checkAndExpireAiPremium, checkAndExpireCelebrity } from '../../lib/premiumCheck';
 import { ChatWidget } from '../../components/ChatWidget';
 import { Toast } from '../../components/Toast';
 import { UploadCloud, Zap } from 'lucide-react';
@@ -32,6 +32,56 @@ export const CelebrityDashboard = () => {
   };
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+
+  // Real-time automatic redirection verification trigger
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const txRef = params.get('tx_ref');
+    const transactionId = params.get('transaction_id') || params.get('transactionId');
+    const status = params.get('status');
+
+    if (transactionId && txRef) {
+      const runVerification = async () => {
+        setVerifyingPayment(true);
+        try {
+          const res = await fetch('/api/premium/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ transactionId, txRef })
+          });
+          const d = await res.json();
+          if (d.success) {
+            triggerToast('Premium upgrade successfully activated!');
+            // Clean up query parameters so reloading doesn't prompt again
+            const url = new URL(window.location.href);
+            url.search = '';
+            window.history.replaceState({}, document.title, url.pathname + url.search);
+            // Flick tab
+            if (txRef.includes('ai_premium')) {
+              setActiveTab('ai-premium');
+            } else {
+              setActiveTab('upgrade');
+            }
+            // Trigger refresh
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          } else {
+            alert('Verification Error: ' + (d.error || 'Please contact security support desk.'));
+          }
+        } catch (err: any) {
+          alert('Could not verify transaction link: ' + err.message);
+        } finally {
+          setVerifyingPayment(false);
+        }
+      };
+      runVerification();
+    }
+  }, [user]);
+
   const [celebLoaded, setCelebLoaded] = useState(false);
   const [aiUsageLoaded, setAiUsageLoaded] = useState(false);
   const [siteSettings, setSiteSettings] = useState<any>(null);
@@ -386,13 +436,27 @@ export const CelebrityDashboard = () => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
-        // Check for AI Premium expiration (35 days plan)
+        // Check for Celebrity core premium expiration
+        const celebExpired = await checkAndExpireCelebrity(db, user.uid, data);
+        if (celebExpired) {
+          data.celebrityPremium = false;
+          data.verifiedCelebrity = false;
+          data.premiumCelebrity = false;
+          data.isLocked = true;
+          data.celebrityPlan = 'free';
+          data.celebrityExpiryDate = null;
+          triggerToast('Your premium VIP status has expired. Reverted core account to Free Plan.');
+        }
+
+        // Check for AI Premium expiration
         const expired = await checkAndExpireAiPremium(db, user.uid, data);
         if (expired) {
           data.isAiSubscribed = false;
           data.aiPremium = false;
           data.aiPremiumActivatedAt = null;
           data.aiPremiumExpiresAt = null;
+          data.aiPremiumPlan = 'free';
+          data.aiPremiumExpiryDate = null;
           triggerToast('AI Premium subscription expired. Reverted to standard Free Plan.');
         }
 
@@ -611,6 +675,15 @@ export const CelebrityDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col font-sans selection:bg-primary selection:text-black">
+      {verifyingPayment && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-md flex flex-col justify-center items-center text-center p-6 space-y-6 font-sans">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-display font-black text-white uppercase italic tracking-tighter">VERIFYING YOUR PAYMENT TRANSACTION</h2>
+            <p className="text-xs text-primary font-mono uppercase tracking-widest animate-pulse">Contacting Flutterwave node verification desk... please wait...</p>
+          </div>
+        </div>
+      )}
       {/* Educational Purpose Warning Bar for non-VIP accounts */}
       {isLocked && (
         <div className="mx-4 mt-4 sm:mx-6 sm:mt-5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 py-3 px-6 overflow-hidden rounded-2xl border border-amber-400/50 shadow-[0_8px_30px_rgba(245,158,11,0.35)] relative z-[99] shrink-0">
@@ -3362,90 +3435,298 @@ const PaymentSettingsModule = ({ celebData, setCelebData, currencySym, triggerTo
 
 // Extracted upgrade screen
 const UpgradeScreen = ({ siteSettings, celebId, setActiveTab }: any) => {
+  const { user } = useAuth();
+  const [billingPlan, setBillingPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [paymentMethod, setPaymentMethod] = useState<'flutterwave' | 'manual'>('flutterwave');
+  
+  const [premiumSettings, setPremiumSettings] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [initLoading, setInitLoading] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [manualTxId, setManualTxId] = useState('');
 
-  const handleUpgrade = async () => {
-    if (!file) return alert('Payment receipt image required.');
+  useEffect(() => {
+    fetch('/api/premium/settings')
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) setPremiumSettings(d);
+      })
+      .catch(e => console.error("Error loading premium settings:", e));
+  }, []);
+
+  const activeConfigs = premiumSettings || {
+    enableCelebrityUpgrade: siteSettings?.enableCelebrityUpgrade !== false,
+    enableAiUpgrade: siteSettings?.enableAiUpgrade !== false,
+    enableFlutterwave: siteSettings?.enableFlutterwave !== false,
+    enableManualPayment: siteSettings?.enableManualPayment !== false,
+    celebrityPlanMonthlyPrice: siteSettings?.celebrityPlanMonthlyPrice ?? 499,
+    celebrityPlanYearlyPrice: siteSettings?.celebrityPlanYearlyPrice ?? 4999,
+    currency: siteSettings?.currency || 'USD',
+    adminBankName: siteSettings?.adminBankName || 'OPAY',
+    adminAccountNo: siteSettings?.adminAccountNo || '8062827392',
+    adminAccountName: siteSettings?.adminAccountName || 'BENJAMIN GEORGE',
+    adminPaymentInstructions: siteSettings?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval."
+  };
+
+  useEffect(() => {
+    if (activeConfigs) {
+      if (activeConfigs.enableFlutterwave === false && activeConfigs.enableManualPayment !== false) {
+        setPaymentMethod('manual');
+      } else if (activeConfigs.enableManualPayment === false && activeConfigs.enableFlutterwave !== false) {
+        setPaymentMethod('flutterwave');
+      }
+    }
+  }, [premiumSettings]);
+
+  const handlePayWithFlutterwave = async () => {
+    if (!user) return alert("You must be logged in to initiate checkout.");
+    setInitLoading(true);
+    try {
+      const response = await fetch('/api/premium/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: celebId,
+          upgradeType: 'celebrity',
+          planName: billingPlan,
+          email: user.email || `${celebId}@bookaceleb.com`,
+          name: user.displayName || 'Celebrity Account'
+        })
+      });
+
+      const data = await response.json();
+      if (data.success && data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        alert(data.error || 'Could not initiate Flutterwave checkout. Please try again.');
+      }
+    } catch (err: any) {
+      alert('Error initializing automatic payment gateway: ' + err.message);
+    } finally {
+      setInitLoading(false);
+    }
+  };
+
+  const handleManualUpgrade = async () => {
+    if (!receiptFile) return alert('Payment receipt screenshot required for validation.');
     setLoading(true);
     try {
-      const url = await uploadToCloudinary(file);
-      await setDoc(doc(db, 'celebrityProfiles', celebId), { 
-        upgradePending: true,
-        paymentProof: url,
-        upgradeDate: new Date().toISOString()
-      }, { merge: true });
-      alert('Verification payment receipt uploaded successfully! The administrator will review and approve your account shortly.');
-      setActiveTab('dashboard');
+      const url = await uploadToCloudinary(receiptFile);
+      const res = await fetch('/api/premium/manual-submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: celebId,
+          upgradeType: 'celebrity',
+          planName: billingPlan,
+          paymentProof: url,
+          email: user?.email || `${celebId}@bookaceleb.com`,
+          name: user?.displayName || 'Celebrity Account',
+          transactionId: manualTxId
+        })
+      });
+
+      const d = await res.json();
+      if (d.success) {
+        alert('Verification payment receipt uploaded successfully! Admin will verify and activate your premium status shortly.');
+        setActiveTab('dashboard');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        alert(d.error || 'Failed to submit manual payment. Please retry.');
+      }
     } catch (err: any) {
-      alert(err.message);
+      alert('Could not submit payment receipt: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const currencySymbol = siteSettings?.currency === 'NGN' ? '₦' : '$';
+  const activeCurrencySymbol = activeConfigs.currency === 'NGN' ? '₦' : '$';
+  const displayPrice = billingPlan === 'yearly' ? activeConfigs.celebrityPlanYearlyPrice : activeConfigs.celebrityPlanMonthlyPrice;
+
+  if (activeConfigs.enableCelebrityUpgrade === false) {
+    return (
+      <div className="glass-dark rounded-[2.5rem] p-6 sm:p-10 md:p-12 max-w-2xl mx-auto border-2 border-red-500/25 shadow-2xl space-y-8 text-center font-sans">
+        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-400 mx-auto mb-6 ring-8 ring-red-500/5 animate-pulse">
+          <Lock size={32} />
+        </div>
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-tighter italic">Upgrades Temporarily Suspended</h2>
+          <p className="text-xs text-red-400 uppercase font-black tracking-widest mt-1">Celebrity Premium Upgrades are currently disabled by the administration</p>
+        </div>
+        <p className="text-sm text-white/55 leading-relaxed max-w-md mx-auto">
+          The Super Admin has suspended incoming celebrity upgrade requests. Please check back later or contact platform support if you have pending transaction clearances.
+        </p>
+      </div>
+    );
+  }
+
+  if (activeConfigs.enableFlutterwave === false && activeConfigs.enableManualPayment === false) {
+    return (
+      <div className="glass-dark rounded-[2.5rem] p-6 sm:p-10 md:p-12 max-w-2xl mx-auto border-2 border-amber-500/10 shadow-2xl space-y-8 text-center font-sans">
+        <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-400 mx-auto mb-6 ring-8 ring-amber-500/5">
+          <AlertCircle size={32} />
+        </div>
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-tighter italic">Gateways Offline</h2>
+          <p className="text-xs text-amber-400 uppercase font-black tracking-widest mt-1">Payment systems are under scheduled maintenance</p>
+        </div>
+        <p className="text-sm text-white/55 leading-relaxed max-w-md mx-auto">
+          Both automatic card payments and manual bank transfers are temporarily closed. Platform managers are verifying current transaction balances.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="glass-dark rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 md:p-12 max-w-2xl mx-auto border-4 border-primary/25 shadow-2xl space-y-8 sm:space-y-10 text-center font-sans">
+    <div className="glass-dark rounded-[2.5rem] p-6 sm:p-10 md:p-12 max-w-2xl mx-auto border-2 border-primary/25 shadow-2xl space-y-8 text-center font-sans">
       <div>
         <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mx-auto mb-6 ring-8 ring-primary/5">
           <Award size={32} />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-tighter italic">Activate Account</h2>
-        <p className="text-xs text-white/40 uppercase font-black tracking-widest mt-1">Get verified to unlock profile customized tools</p>
+        <h2 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-tighter italic">Activate Premium Upgrade</h2>
+        <p className="text-xs text-white/40 uppercase font-black tracking-widest mt-1">Unlock verified premium verification with customized tools</p>
       </div>
 
-      <div className="bg-slate-950/60 p-5 sm:p-8 rounded-[2rem] border border-white/5 space-y-6 text-left relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-          <Landmark size={80} />
-        </div>
-        <div>
-          <p className="text-[10px] uppercase font-mono tracking-widest text-white/30">Activation Fee</p>
-          <div className="overflow-x-auto scrollbar-none max-w-full">
-            <p className="text-3xl sm:text-4xl md:text-5xl font-display font-black text-white italic mt-1 whitespace-nowrap break-keep select-all">
-              {currencySymbol}{siteSettings?.activationFee || '499'}
-            </p>
-          </div>
-        </div>
-
-        <div className="pt-6 border-t border-white/10 space-y-4 text-xs font-medium">
-          <div>
-            <p className="text-[10px] uppercase text-white/30">Bank Name</p>
-            <p className="font-bold text-white italic text-base mt-0.5">{siteSettings?.adminBankName || 'OPAY'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase text-white/30">Account Number</p>
-            <p className="font-mono text-primary font-bold text-lg mt-0.5 select-all">{siteSettings?.adminAccountNo || '8062827392'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase text-white/30">Account Name</p>
-            <p className="font-bold text-white uppercase italic tracking-wider mt-0.5">{siteSettings?.adminAccountName || 'BENJAMIN GEORGE'}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <label className="block border-2 border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-40 sm:h-48 rounded-[2rem] flex flex-col items-center justify-center p-6 cursor-pointer relative overflow-hidden transition-all group">
-          {file ? (
-            <span className="text-primary text-xs font-black uppercase tracking-wider italic">{file.name}</span>
-          ) : (
-            <>
-              <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-white/30 group-hover:text-primary mb-3 transition-colors"><Send size={20} /></div>
-              <p className="text-[10px] text-white/45 font-black uppercase tracking-widest">Upload Payment Receipt</p>
-            </>
-          )}
-          <input type="file" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
-        </label>
-
-        <button 
-          onClick={handleUpgrade}
-          disabled={loading || !file}
-          className="w-full py-4 sm:py-5 bg-primary text-black rounded-2xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-primary/20 hover:scale-[1.01] transition-all disabled:opacity-30 text-xs"
+      {/* 2-Way Plan Selector */}
+      <div className="grid grid-cols-2 p-1.5 bg-slate-950/60 rounded-2xl border border-white/5">
+        <button
+          onClick={() => setBillingPlan('monthly')}
+          className={`py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${
+            billingPlan === 'monthly' ? 'bg-primary text-black' : 'text-white/45'
+          }`}
         >
-          {loading ? 'Submitting Receipt...' : 'Confirm Payment'}
+          Monthly Plan
+        </button>
+        <button
+          onClick={() => setBillingPlan('yearly')}
+          className={`py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all ${
+            billingPlan === 'yearly' ? 'bg-primary text-black' : 'text-white/45'
+          }`}
+        >
+          Yearly Plan (Save ~15%)
         </button>
       </div>
+
+      {/* Gateway selection Tabs */}
+      <div className="grid grid-cols-2 gap-4">
+        {activeConfigs.enableFlutterwave !== false && (
+          <button
+            onClick={() => setPaymentMethod('flutterwave')}
+            className={`py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
+              paymentMethod === 'flutterwave'
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-white/5 bg-white/[0.01] text-white/45'
+            }`}
+          >
+            💳 Automatic Gateway (Flutterwave)
+          </button>
+        )}
+        {activeConfigs.enableManualPayment !== false && (
+          <button
+            onClick={() => setPaymentMethod('manual')}
+            className={`py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
+              paymentMethod === 'manual'
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-white/5 bg-white/[0.01] text-white/45'
+            }`}
+          >
+            🏛️ Manual Transfer (Admin Approval)
+          </button>
+        )}
+      </div>
+
+      {/* Pricing View */}
+      <div className="bg-slate-950/40 p-6 rounded-[2rem] border border-white/5 space-y-1">
+        <p className="text-[10px] uppercase font-mono tracking-widest text-white/30">Total Upgrade amount</p>
+        <p className="text-4xl sm:text-5xl font-display font-black text-white italic">
+          {activeCurrencySymbol}{displayPrice} <span className="text-xs font-sans not-italic text-white/45 uppercase tracking-wider">/ {billingPlan}</span>
+        </p>
+      </div>
+
+      {paymentMethod === 'flutterwave' ? (
+        <div className="space-y-4">
+          <div className="text-left text-xs bg-black/40 p-5 rounded-2xl border border-white/5 text-white/60 leading-relaxed font-sans">
+            <p className="font-bold text-white uppercase text-[10px] tracking-wider mb-1.5">🚀 Automatic Gateways features:</p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>Instant activation seconds after checkout.</li>
+              <li>Secure card inputs, USSD strings, mobile cash or direct bank link.</li>
+              <li>Official zero-wait immediate verification.</li>
+            </ul>
+          </div>
+          <button
+            onClick={handlePayWithFlutterwave}
+            disabled={initLoading}
+            className="w-full py-4.5 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl hover:scale-[1.01] transition-all text-xs shadow-lg shadow-primary/10 disabled:opacity-50"
+          >
+            {initLoading ? 'Deploying Gateway...' : 'Pay with Flutterwave'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-6 text-left">
+          <div className="bg-slate-950/60 p-5 sm:p-7 rounded-[2rem] border border-white/5 space-y-5">
+            <div>
+              <p className="text-[10px] uppercase font-mono text-white/30">Wire Information Instructions</p>
+              <p className="text-xs text-primary font-bold italic mt-1 leading-relaxed whitespace-pre-wrap">
+                {activeConfigs.adminPaymentInstructions}
+              </p>
+            </div>
+            <div className="pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <p className="text-[10px] uppercase text-white/30">Bank Name</p>
+                <p className="font-bold text-white italic text-sm mt-0.5">{activeConfigs.adminBankName}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-white/30">Account Number</p>
+                <p className="font-mono text-primary font-bold text-red-400 text-sm mt-0.5 select-all">{activeConfigs.adminAccountNo}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-white/30">Account Name</p>
+                <p className="font-bold text-white uppercase italic tracking-wider mt-0.5">{activeConfigs.adminAccountName}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[9px] uppercase font-black tracking-widest text-white/40 mb-1.5">Transaction ID / Reference (Optional)</label>
+              <input
+                type="text"
+                placeholder="Paste reference or transfer name"
+                value={manualTxId}
+                onChange={e => setManualTxId(e.target.value)}
+                className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-primary/50"
+              />
+            </div>
+
+            <label className="block border-2 border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-32 rounded-2xl flex flex-col items-center justify-center p-4 cursor-pointer relative overflow-hidden transition-all group">
+              {receiptFile ? (
+                <span className="text-primary text-xs font-black uppercase tracking-wider italic text-center w-full truncate px-4">{receiptFile.name}</span>
+              ) : (
+                <>
+                  <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-white/30 group-hover:text-primary mb-2 transition-colors"><Send size={16} /></div>
+                  <p className="text-[9px] text-white/45 font-black uppercase tracking-widest">Upload Payment Receipt Screenshot</p>
+                </>
+              )}
+              <input type="file" className="hidden" onChange={e => setReceiptFile(e.target.files?.[0] || null)} />
+            </label>
+
+            <button
+              onClick={handleManualUpgrade}
+              disabled={loading || !receiptFile}
+              className="w-full py-4 bg-primary text-black rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-30 text-xs shadow-lg shadow-primary/10"
+            >
+              {loading ? 'Submitting Receipt...' : 'Confirm Manual Payment'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3454,45 +3735,128 @@ const UpgradeScreen = ({ siteSettings, celebId, setActiveTab }: any) => {
 const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUsage, siteSettings }: any) => {
   const isAiSubscribed = celebData?.isAiSubscribed === true || celebData?.aiPremium === true;
   const aiUpgradePending = celebData?.aiUpgradePending === true;
-  const [uploadingReceipt, setUploadingReceipt] = useState(false);
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
-  const handleAiUpgrade = async () => {
-    if (!receiptFile) return alert('Payment receipt image is required.');
-    setUploadingReceipt(true);
+  const [billingPlan, setBillingPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [paymentMethod, setPaymentMethod] = useState<'flutterwave' | 'manual'>('flutterwave');
+  
+  const [premiumSettings, setPremiumSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [initLoading, setInitLoading] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [manualTxId, setManualTxId] = useState('');
+
+  useEffect(() => {
+    fetch('/api/premium/settings')
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) setPremiumSettings(d);
+      })
+      .catch(e => console.error("Error loading configurations settings:", e));
+  }, []);
+
+  const activeConfigs = premiumSettings || {
+    enableCelebrityUpgrade: siteSettings?.enableCelebrityUpgrade !== false,
+    enableAiUpgrade: siteSettings?.enableAiUpgrade !== false,
+    enableFlutterwave: siteSettings?.enableFlutterwave !== false,
+    enableManualPayment: siteSettings?.enableManualPayment !== false,
+    aiPremiumMonthlyPrice: siteSettings?.aiPremiumMonthlyPrice ?? 150,
+    aiPremiumYearlyPrice: siteSettings?.aiPremiumYearlyPrice ?? 1200,
+    currency: siteSettings?.currency || 'USD',
+    adminBankName: siteSettings?.adminBankName || 'OPAY',
+    adminAccountNo: siteSettings?.adminAccountNo || '8062827392',
+    adminAccountName: siteSettings?.adminAccountName || 'BENJAMIN GEORGE',
+    adminPaymentInstructions: siteSettings?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval."
+  };
+
+  useEffect(() => {
+    if (activeConfigs) {
+      if (activeConfigs.enableFlutterwave === false && activeConfigs.enableManualPayment !== false) {
+        setPaymentMethod('manual');
+      } else if (activeConfigs.enableManualPayment === false && activeConfigs.enableFlutterwave !== false) {
+        setPaymentMethod('flutterwave');
+      }
+    }
+  }, [premiumSettings]);
+
+  const handlePayWithFlutterwave = async () => {
+    if (!user) return alert("You must be logged in to subscribe.");
+    setInitLoading(true);
     try {
-      const url = await uploadToCloudinary(receiptFile);
-      await setDoc(doc(db, 'celebrityProfiles', user!.uid), { 
-        aiUpgradePending: true,
-        aiPaymentProof: url,
-        aiUpgradeDate: new Date().toISOString()
-      }, { merge: true });
-      
-      // Sync local state
-      setCelebData({
-        ...celebData,
-        aiUpgradePending: true,
-        aiPaymentProof: url
+      const response = await fetch('/api/premium/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          upgradeType: 'ai_premium',
+          planName: billingPlan,
+          email: user?.email || `${user.uid}@bookaceleb.com`,
+          name: user?.displayName || 'AI Subscriber'
+        })
       });
 
-      alert('Verification payment slip uploaded successfully! The Super Admin will review and activate your AI Premium Upgrade shortly.');
-      setReceiptFile(null);
+      const data = await response.json();
+      if (data.success && data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        alert(data.error || 'Failed to trigger checkout.');
+      }
     } catch (err: any) {
-      alert('Error submitting AI Premium slip: ' + err.message);
+      alert('Error triggering verification sequence: ' + err.message);
     } finally {
-      setUploadingReceipt(false);
+      setInitLoading(false);
     }
   };
 
-  const subCurrency = siteSettings?.aiSubCurrency || 'USD';
-  const subAmount = siteSettings?.aiSubAmount || '150';
-  const paymentDetailsText = siteSettings?.aiPaymentDetails || 'Transfer premium dues to OPAY admin details and upload receipt.';
+  const handleManualUpgrade = async () => {
+    if (!receiptFile) return alert('Payment receipt image required.');
+    setLoading(true);
+    try {
+      const url = await uploadToCloudinary(receiptFile);
+      const res = await fetch('/api/premium/manual-submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          upgradeType: 'ai_premium',
+          planName: billingPlan,
+          paymentProof: url,
+          email: user?.email || `${user.uid}@bookaceleb.com`,
+          name: user?.displayName || 'AI Subscriber',
+          transactionId: manualTxId
+        })
+      });
+
+      const d = await res.json();
+      if (d.success) {
+        alert('Verification payment slip uploaded! Admin review is on course.');
+        setCelebData({
+          ...celebData,
+          aiUpgradePending: true,
+          aiPaymentProof: url
+        });
+        setReceiptFile(null);
+      } else {
+        alert(d.error || 'Upload failed.');
+      }
+    } catch (err: any) {
+      alert('Error submitting receipts: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeCurrencySymbol = activeConfigs.currency === 'NGN' ? '₦' : '$';
+  const displayPrice = billingPlan === 'yearly' ? activeConfigs.aiPremiumYearlyPrice : activeConfigs.aiPremiumMonthlyPrice;
 
   const displayLimit = isAiSubscribed ? 50 : 5;
   const remaining = Math.max(0, displayLimit - aiUsageCount);
 
   return (
-    <div className="space-y-8 text-left font-sans animate-fade-in">
+    <div className="space-y-8 text-left font-sans animate-fade-in font-sans">
       <div className="bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-slate-900/40 p-10 border border-indigo-500/20 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -3500,7 +3864,7 @@ const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUs
             <h3 className="text-xl sm:text-2xl font-display font-bold uppercase tracking-widest text-white italic">AI Premium Assist</h3>
           </div>
           <p className="text-xs text-white/60 max-w-xl leading-relaxed">
-            Elevate your chat experience automatically! Unlocks 5 high-quality smart replies suggestions instead of 3, expands your daily quota to 50 queries, and supports robust prompt configurations.
+            Elevate your chat response speed automatically! Unlocks 5 high-quality smart replies suggestions, expands daily quotas to 50 smart prompts, and disables query cooling down intervals.
           </p>
         </div>
 
@@ -3522,7 +3886,7 @@ const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUs
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Telemetry Panel */}
+        {/* Telemetry panel */}
         <div className="glass-dark rounded-[2.5rem] p-8 border border-white/5 space-y-6 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
@@ -3589,70 +3953,163 @@ const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUs
           </div>
         </div>
 
-        {/* Payment/Upgrade Form */}
+        {/* Upgrade billing forms */}
         {!isAiSubscribed && (
           <div className="bg-slate-900/40 p-8 border border-white/5 rounded-[2.5rem] space-y-6">
-            <div className="pb-4 border-b border-white/5">
-              <h4 className="text-sm font-black text-white uppercase tracking-wider">Unlock AI Premium</h4>
-              <p className="text-[10px] text-white/40 mt-1 uppercase font-black tracking-widest">Submit activation payment slide</p>
+            {activeConfigs.enableAiUpgrade === false ? (
+              <div className="text-center py-8 space-y-4 font-sans flex flex-col justify-center items-center h-full">
+                <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center text-red-400 animate-pulse">
+                  <Lock size={24} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-white uppercase tracking-wider">AI Upgrade Suspended</h4>
+                  <p className="text-[10px] text-red-400 uppercase font-black tracking-widest">Disabled by administration</p>
+                </div>
+                <p className="text-xs text-white/45 max-w-xs leading-relaxed">
+                  Subscriptions to the AI Premium smart replies assistant are currently closed. Please contact support.
+                </p>
+              </div>
+            ) : activeConfigs.enableFlutterwave === false && activeConfigs.enableManualPayment === false ? (
+              <div className="text-center py-8 space-y-4 font-sans flex flex-col justify-center items-center h-full">
+                <div className="w-14 h-14 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500">
+                  <AlertCircle size={24} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-white uppercase tracking-wider">Checkout Offline</h4>
+                  <p className="text-[10px] text-amber-550 uppercase font-black tracking-widest">Billing Systems Maintenance</p>
+                </div>
+                <p className="text-xs text-white/45 max-w-xs leading-relaxed">
+                  Direct cards checkout and manual bank receipt verifications are temporarily disabled.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="pb-4 border-b border-white/5">
+                  <h4 className="text-sm font-black text-white uppercase tracking-wider">Unlock AI Premium</h4>
+                  <p className="text-[10px] text-white/40 mt-1 uppercase font-black tracking-widest">Upgrade to maximum Smart Quotas instantly</p>
+                </div>
+
+            {/* Sub Billing Plan Selector */}
+            <div className="grid grid-cols-2 p-1 bg-slate-950/60 rounded-xl border border-white/5">
+              <button
+                onClick={() => setBillingPlan('monthly')}
+                className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                  billingPlan === 'monthly' ? 'bg-primary text-black' : 'text-white/45'
+                }`}
+              >
+                Monthly Plan
+              </button>
+              <button
+                onClick={() => setBillingPlan('yearly')}
+                className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                  billingPlan === 'yearly' ? 'bg-primary text-black' : 'text-white/45'
+                }`}
+              >
+                Yearly Plan
+              </button>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <p className="text-[10px] uppercase text-white/30">Subscription Due Fee</p>
-                <p className="text-2xl font-display font-black text-white italic mt-0.5">
-                  {subCurrency === 'NGN' ? '₦' : '$'}{subAmount}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-white/30">Payment Information / Instructions</p>
-                <p className="text-xs text-primary font-bold italic mt-1 leading-relaxed bg-black/40 p-4 rounded-xl border border-white/5 whitespace-pre-wrap select-all">
-                  {paymentDetailsText}
-                </p>
-              </div>
+            {/* Gateway Segment Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              {activeConfigs.enableFlutterwave !== false && (
+                <button
+                  onClick={() => setPaymentMethod('flutterwave')}
+                  className={`py-2 px-3 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${
+                    paymentMethod === 'flutterwave'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-white/5 bg-white/[0.01] text-white/45'
+                  }`}
+                >
+                  💳 Automatic
+                </button>
+              )}
+              {activeConfigs.enableManualPayment !== false && (
+                <button
+                  onClick={() => setPaymentMethod('manual')}
+                  className={`py-2 px-3 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${
+                    paymentMethod === 'manual'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-white/5 bg-white/[0.01] text-white/45'
+                  }`}
+                >
+                  🏛️ Manual Wire
+                </button>
+              )}
+            </div>
+
+            {/* Total Pricing Box */}
+            <div className="p-4 bg-slate-950/20 border border-white/5 rounded-xl">
+              <p className="text-[9px] uppercase font-mono text-white/30">Total active dues</p>
+              <p className="text-2xl font-display font-black text-white italic mt-0.5">
+                {activeCurrencySymbol}{displayPrice} <span className="text-[10px] uppercase font-sans tracking-widest text-white/45">/ {billingPlan}</span>
+              </p>
             </div>
 
             {aiUpgradePending ? (
               <div className="p-6 bg-amber-500/5 rounded-2xl border border-amber-500/20 text-center space-y-2">
                 <p className="text-xs text-amber-500 font-extrabold uppercase tracking-wider">Review Is Ongoing</p>
                 <p className="text-[10px] text-white/45 leading-relaxed">
-                  Our billing desk is reviewing your payment slide. Your account is expected to unlock premium AI capabilities shortly. Keep checking!
+                  Our billing desk is reviewing your payment receipt. Your account is expected to unlock premium AI capabilities shortly. Keep checking!
                 </p>
               </div>
+            ) : paymentMethod === 'flutterwave' ? (
+              <button
+                onClick={handlePayWithFlutterwave}
+                disabled={initLoading}
+                className="w-full py-4 bg-primary text-black font-black uppercase tracking-[0.15em] rounded-2xl hover:scale-[1.01] transition-all text-xs shadow-lg shadow-primary/10 disabled:opacity-50"
+              >
+                {initLoading ? 'Deploying Gateway...' : 'Pay with Flutterwave'}
+              </button>
             ) : (
-              <div className="space-y-4">
-                <label className="block border-2 border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-28 rounded-2xl flex flex-col items-center justify-center p-4 cursor-pointer relative overflow-hidden transition-all group">
-                  {receiptFile ? (
-                    <span className="text-primary text-xs font-black uppercase tracking-wider italic text-center w-full truncate">
-                      {receiptFile.name}
-                    </span>
-                  ) : (
-                    <>
-                      <UploadCloud size={20} className="text-white/30 group-hover:text-primary mb-1.5 transition-colors" />
-                      <p className="text-[9px] text-white/45 font-black uppercase tracking-widest">Select Receipt Screenshot</p>
-                    </>
-                  )}
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    onChange={e => setReceiptFile(e.target.files?.[0] || null)} 
-                  />
-                </label>
+              <div className="space-y-4 text-left">
+                <div className="bg-slate-950/60 p-4 rounded-xl border border-white/5 text-[11px] leading-relaxed">
+                  <p className="text-[9px] uppercase tracking-wider text-white/30 mb-1">Administrative wire parameters:</p>
+                  <p className="text-primary font-bold italic mb-3 whitespace-pre-wrap">{activeConfigs.adminPaymentInstructions}</p>
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-[10px]">
+                    <p className="text-white/40">Bank: <span className="font-bold text-white">{activeConfigs.adminBankName}</span></p>
+                    <p className="text-white/40">Account: <span className="font-mono text-primary font-black select-all">{activeConfigs.adminAccountNo}</span></p>
+                    <p className="text-white/40 col-span-2">Holder: <span className="font-bold text-white uppercase">{activeConfigs.adminAccountName}</span></p>
+                  </div>
+                </div>
 
-                <button 
-                  onClick={handleAiUpgrade}
-                  disabled={uploadingReceipt || !receiptFile}
-                  className="w-full py-4 bg-primary text-black rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-30 text-xs shadow-lg shadow-primary/10"
-                >
-                  {uploadingReceipt ? 'Submitting Receipt...' : 'Confirm Premium Payment'}
-                </button>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Transaction Reference (Optional)"
+                    value={manualTxId}
+                    onChange={e => setManualTxId(e.target.value)}
+                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary/50"
+                  />
+
+                  <label className="block border border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-24 rounded-xl flex flex-col items-center justify-center p-3 cursor-pointer relative overflow-hidden transition-all group">
+                    {receiptFile ? (
+                      <span className="text-primary text-[11px] font-bold truncate px-2 text-center w-full">{receiptFile.name}</span>
+                    ) : (
+                      <>
+                        <UploadCloud size={18} className="text-white/30 group-hover:text-primary mb-1" />
+                        <p className="text-[8px] text-white/40 font-black uppercase tracking-widest">Select Ticket Screenshot</p>
+                      </>
+                    )}
+                    <input type="file" className="hidden" onChange={e => setReceiptFile(e.target.files?.[0] || null)} />
+                  </label>
+
+                  <button
+                    onClick={handleManualUpgrade}
+                    disabled={loading || !receiptFile}
+                    className="w-full py-3.5 bg-primary text-black rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-30 text-[10px] shadow-lg shadow-primary/10"
+                  >
+                    {loading ? 'Submitting Receipt...' : 'Confirm Premium Payment'}
+                  </button>
+                </div>
               </div>
+            )}
+              </>
             )}
           </div>
         )}
 
         {isAiSubscribed && (
-          <div className="bg-emerald-950/20 border border-emerald-500/20 p-8 rounded-[2.5rem] flex flex-col justify-center items-center text-center space-y-4">
+          <div className="bg-emerald-950/20 border border-emerald-500/20 p-8 rounded-[2.5rem] flex flex-col justify-center items-center text-center space-y-4 font-sans">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
               <Sparkles size={28} className="animate-pulse" />
             </div>

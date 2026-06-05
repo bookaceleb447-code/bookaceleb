@@ -356,6 +356,633 @@ app.post(["/api/admin/verify-celebrity", "/admin/verify-celebrity"], async (req,
   }
 });
 
+// Helper function to activate Celebrity or AI upgrades cleanly
+async function activateUpgrade(
+  db: any,
+  userId: string,
+  upgradeType: string,
+  planName: string,
+  transactionId: string,
+  amountPaid: number,
+  currencyPaid: string,
+  paymentMethod: string,
+  txRef?: string
+) {
+  const now = Date.now();
+  const recordId = txRef || `purchase-${userId}-${upgradeType}-${now}`;
+
+  // 1. Update the payment transaction record
+  await db.collection("premiumPayments").doc(recordId).set({
+    userId,
+    upgradeType,
+    planName,
+    amount: amountPaid,
+    currency: currencyPaid,
+    paymentMethod,
+    transactionId,
+    paymentStatus: "success",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    txRef: txRef || recordId
+  }, { merge: true });
+
+  // 2. Perform Account Status Changes
+  if (upgradeType === "celebrity") {
+    const durationDays = planName === "yearly" ? 365 : 31;
+    const expiryDate = new Date(now + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+    await db.collection("celebrityProfiles").doc(userId).set({
+      isLocked: false,
+      upgradePending: false,
+      verifiedCelebrity: true,
+      premiumCelebrity: true,
+      celebrityPlan: planName,
+      celebrityExpiryDate: expiryDate
+    }, { merge: true });
+
+    await db.collection("users").doc(userId).set({
+      role: "celebrity",
+      verifiedCelebrity: true,
+      premiumCelebrity: true,
+      celebrityPlan: planName,
+      celebrityExpiryDate: expiryDate
+    }, { merge: true });
+
+  } else if (upgradeType === "ai_premium") {
+    const durationDays = planName === "yearly" ? 365 : 31; // Exactly 31 days monthly limit as requested
+    const expiryMs = now + durationDays * 24 * 60 * 60 * 1000;
+    const expiryISO = new Date(expiryMs).toISOString();
+
+    await db.collection("celebrityProfiles").doc(userId).set({
+      aiPremium: true,
+      isAiSubscribed: true,
+      aiUpgradePending: false,
+      aiPremiumActivatedAt: now,
+      aiPremiumExpiresAt: expiryMs,
+      aiPremiumPlan: planName,
+      aiPremiumExpiryDate: expiryISO
+    }, { merge: true });
+
+    await db.collection("users").doc(userId).set({
+      aiPremium: true,
+      isAiSubscribed: true,
+      aiPremiumActivatedAt: now,
+      aiPremiumExpiresAt: expiryMs,
+      aiPremiumPlan: planName,
+      aiPremiumExpiryDate: expiryISO
+    }, { merge: true });
+
+    await db.collection("aiUsage").doc(userId).set({
+      planType: "ai_subscribed",
+      dailyLimit: 50,
+      maxDailyRequests: 50,
+      aiPremium: true,
+      aiPremiumActivatedAt: now,
+      aiPremiumExpiresAt: expiryMs,
+      remainingRequests: 50,
+      requestCountToday: 0,
+      dailyRequests: 0,
+      geminiQuotaExceeded: false,
+    }, { merge: true });
+  }
+}
+
+// 1. Get active configurations & settings
+app.get("/api/premium/settings", async (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database reference offline" });
+
+  try {
+    const snap = await db.collection("siteSettings").doc("global").get();
+    const data = snap.exists ? snap.data() : {};
+    return res.json({
+      success: true,
+      enableFlutterwave: data?.enableFlutterwave !== false,
+      enableManualPayment: data?.enableManualPayment !== false,
+      enableCelebrityUpgrade: data?.enableCelebrityUpgrade !== false,
+      enableAiUpgrade: data?.enableAiUpgrade !== false,
+      celebrityPlanMonthlyPrice: data?.celebrityPlanMonthlyPrice ?? 499,
+      celebrityPlanYearlyPrice: data?.celebrityPlanYearlyPrice ?? 4999,
+      aiPremiumMonthlyPrice: data?.aiPremiumMonthlyPrice ?? 150,
+      aiPremiumYearlyPrice: data?.aiPremiumYearlyPrice ?? 1200,
+      currency: data?.currency || "USD",
+      adminBankName: data?.adminBankName || "OPAY",
+      adminAccountNo: data?.adminAccountNo || "8062827392",
+      adminAccountName: data?.adminAccountName || "BENJAMIN GEORGE",
+      adminPaymentInstructions: data?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval.",
+      flutterwavePublicKey: process.env.FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK-6773c01c66a5accbbc89b37b89504967-X"
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Initialize checkout session server-side
+app.post("/api/premium/initialize", async (req, res) => {
+  const { userId, upgradeType, planName, email, name } = req.body;
+  if (!userId || !upgradeType || !planName || !email) {
+    return res.status(400).json({ error: "UserId, upgradeType, planName, and email parameters are required" });
+  }
+
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database connection has hung" });
+
+  try {
+    const snap = await db.collection("siteSettings").doc("global").get();
+    const data = snap.exists ? snap.data() : {};
+
+    let amount = 0;
+    if (upgradeType === "celebrity") {
+      amount = planName === "yearly" ? (data?.celebrityPlanYearlyPrice ?? 4999) : (data?.celebrityPlanMonthlyPrice ?? 499);
+    } else if (upgradeType === "ai_premium") {
+      amount = planName === "yearly" ? (data?.aiPremiumYearlyPrice ?? 1200) : (data?.aiPremiumMonthlyPrice ?? 150);
+    } else {
+      return res.status(400).json({ error: "Invalid upgrade type specified" });
+    }
+
+    const currency = data?.currency || "USD";
+    const txRef = `ref-${userId}-${upgradeType}-${planName}-${Date.now()}`;
+
+    // Store pending payment record
+    const purchaseDoc = {
+      userId,
+      upgradeType,
+      planName,
+      amount,
+      currency,
+      paymentMethod: "flutterwave",
+      transactionId: "",
+      paymentStatus: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      txRef,
+      email,
+      name: name || "Premium Subscriber"
+    };
+
+    await db.collection("premiumPayments").doc(txRef).set(purchaseDoc);
+
+    const flwSecretKey = process.env.FLUTTERWAVE_SECRET_KEY || "FLWSECK-a53f1c5b1982eca9a9888762ea46c682-19e94517224vt-X";
+    const referer = req.headers.referer || "";
+    let baseUrl = "";
+    if (referer) {
+      try {
+        const urlObj = new URL(referer);
+        baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+      } catch (e) {
+        baseUrl = "https://bookaceleb.site";
+      }
+    } else {
+      baseUrl = "https://bookaceleb.site";
+    }
+
+    const redirectUrl = `${baseUrl}/admin?tab=${upgradeType === 'celebrity' ? 'upgrade' : 'ai-premium'}&status=completed&tx_ref=${txRef}`;
+
+    const flwPayload = {
+      tx_ref: txRef,
+      amount: amount.toString(),
+      currency,
+      redirect_url: redirectUrl,
+      meta: {
+        userId,
+        upgradeType,
+        planName,
+      },
+      customer: {
+        email,
+        name: name || "Premium Subscriber",
+      },
+      customizations: {
+        title: "BookACeleb Premium Upgrade",
+        description: `Upgrade to ${upgradeType === "celebrity" ? "Verified Premium Celebrity" : "AI Assist Premium"}`
+      }
+    };
+
+    const flwRes = await fetch("https://api.flutterwave.com/v3/payments", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${flwSecretKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(flwPayload)
+    });
+
+    if (!flwRes.ok) {
+      const errText = await flwRes.text();
+      console.error("[FLW-INITIALIZE-ERROR]", errText);
+      return res.status(502).json({ error: "Failed to initialize Flutterwave transaction", details: errText });
+    }
+
+    const flwData: any = await flwRes.json();
+    if (flwData.status !== "success" || !flwData.data?.link) {
+      return res.status(502).json({ error: "Flutterwave returned invalid payment link", details: flwData });
+    }
+
+    return res.json({
+      success: true,
+      checkoutUrl: flwData.data.link,
+      txRef
+    });
+
+  } catch (error: any) {
+    console.error("[PREMIUM-INITIALIZE-CATCH]", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. Client-initiated verification endpoint (with retry checks and safety)
+app.post("/api/premium/verify", async (req, res) => {
+  const { transactionId, txRef } = req.body;
+  if (!transactionId) {
+    return res.status(400).json({ error: "Missing transactionId parameter" });
+  }
+
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database offline" });
+
+  try {
+    const duplicateQuery = await db.collection("premiumPayments")
+      .where("transactionId", "==", transactionId.toString())
+      .where("paymentStatus", "==", "success")
+      .limit(1)
+      .get();
+    if (!duplicateQuery.empty) {
+      return res.json({ success: true, message: "Transaction already processed.", duplicate: true });
+    }
+
+    const flwSecretKey = process.env.FLUTTERWAVE_SECRET_KEY || "FLWSECK-a53f1c5b1982eca9a9888762ea46c682-19e94517224vt-X";
+    const runVerification = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
+      headers: {
+        Authorization: `Bearer ${flwSecretKey}`,
+      }
+    });
+
+    if (!runVerification.ok) {
+      return res.status(502).json({ error: "Could not link with Flutterwave verification desk." });
+    }
+
+    const verificationPayload: any = await runVerification.json();
+    if (verificationPayload.status !== "success" || !verificationPayload.data) {
+      return res.status(400).json({ error: "Payment verification failed" });
+    }
+
+    const { status, amount, currency, tx_ref, meta } = verificationPayload.data;
+
+    if (status !== "successful") {
+      return res.status(400).json({ error: `Transaction status is '${status}', anticipated 'successful'.` });
+    }
+
+    const docRef = db.collection("premiumPayments").doc(tx_ref || txRef || "unknown");
+    const paymentDocVal = await docRef.get();
+    
+    const finalUserId = paymentDocVal.exists ? paymentDocVal.data()?.userId : (meta?.userId || meta?.customUserId || "unknown");
+    const finalUpgradeType = paymentDocVal.exists ? paymentDocVal.data()?.upgradeType : (meta?.upgradeType || "unknown");
+    const finalPlanName = paymentDocVal.exists ? paymentDocVal.data()?.planName : (meta?.planName || "monthly");
+
+    await activateUpgrade(
+      db,
+      finalUserId,
+      finalUpgradeType,
+      finalPlanName,
+      transactionId.toString(),
+      Number(amount),
+      currency,
+      "flutterwave",
+      tx_ref || txRef
+    );
+
+    return res.json({
+      success: true,
+      message: "Payment successfully verified and activated!",
+      upgradeType: finalUpgradeType,
+      userId: finalUserId
+    });
+
+  } catch (error: any) {
+    console.error("[PREMIUM-VERIFY-CATCH]", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 4. Flutterwave Webhook Endpoint
+app.post("/api/flutterwave/webhook", async (req, res) => {
+  const secretHash = process.env.FLUTTERWAVE_WEBHOOK_SECRET || "BCA_Flutterwave_2026_7fK9xP3mQa8LwR2nVz6YhD4tCs1Ue5Gb";
+  const incomingHash = req.get("verif-hash") || req.headers["verif-hash"];
+
+  console.log("[FLW-WEBHOOK] Received payload hook event:", req.body);
+
+  if (!incomingHash || incomingHash !== secretHash) {
+    console.error("[FLW-WEBHOOK] ❌ Secret hash did not match");
+    return res.status(401).send("Verification hash error");
+  }
+
+  const db = getDb();
+  if (!db) {
+    console.error("[FLW-WEBHOOK] ❌ Firebase reference null");
+    return res.status(500).send("Database not connected");
+  }
+
+  const { event, data } = req.body;
+
+  // Track raw event in logs
+  try {
+    await db.collection("webhookEvents").add({
+      event: event || "unknown",
+      tx_ref: data?.tx_ref || "unknown",
+      amount: data?.amount || 0,
+      currency: data?.currency || "",
+      transactionId: data?.id?.toString() || "",
+      status: data?.status || "",
+      receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+      rawPayload: req.body
+    });
+  } catch (errLog) {
+    console.warn("[FLW-WEBHOOK-SAVE-ERROR]", errLog);
+  }
+
+  if (event === "charge.completed" && data?.status === "successful") {
+    const transactionId = data.id?.toString();
+    const flwAmount = data.amount;
+    const flwCurrency = data.currency;
+    const txRef = data.tx_ref;
+
+    try {
+      const duplicateQuery = await db.collection("premiumPayments")
+        .where("transactionId", "==", transactionId)
+        .where("paymentStatus", "==", "success")
+        .limit(1)
+        .get();
+
+      if (!duplicateQuery.empty) {
+        console.log(`[FLW-WEBHOOK] Transaction ${transactionId} already handled.`);
+        return res.status(200).send("Completed previously");
+      }
+
+      // Re-verify with FLW server
+      const flwSecretKey = process.env.FLUTTERWAVE_SECRET_KEY || "FLWSECK-a53f1c5b1982eca9a9888762ea46c682-19e94517224vt-X";
+      const runVerification = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
+        headers: {
+          Authorization: `Bearer ${flwSecretKey}`,
+        }
+      });
+
+      if (!runVerification.ok) {
+        console.error(`[FLW-WEBHOOK] Verification check failed with status ${runVerification.status}`);
+        return res.status(502).send("Verification request failed");
+      }
+
+      const flwPayload: any = await runVerification.json();
+      if (flwPayload.status !== "success" || !flwPayload.data) {
+        return res.status(400).send("Verified data mismatch");
+      }
+
+      const verifiedData = flwPayload.data;
+      if (verifiedData.status !== "successful") {
+        return res.status(400).send("Transaction holds unsuccessful status");
+      }
+
+      const verifiedTxRef = verifiedData.tx_ref;
+      const verifiedAmount = Number(verifiedData.amount);
+      const verifiedCurrency = verifiedData.currency;
+      const verifiedMeta = verifiedData.meta;
+
+      const docRef = db.collection("premiumPayments").doc(verifiedTxRef || txRef || "unknown");
+      const paymentDocVal = await docRef.get();
+
+      const finalUserId = paymentDocVal.exists ? paymentDocVal.data()?.userId : (verifiedMeta?.userId || verifiedMeta?.customUserId || "unknown");
+      const finalUpgradeType = paymentDocVal.exists ? paymentDocVal.data()?.upgradeType : (verifiedMeta?.upgradeType || "unknown");
+      const finalPlanName = paymentDocVal.exists ? paymentDocVal.data()?.planName : (verifiedMeta?.planName || "monthly");
+
+      await activateUpgrade(
+        db,
+        finalUserId,
+        finalUpgradeType,
+        finalPlanName,
+        transactionId,
+        verifiedAmount,
+        verifiedCurrency,
+        "flutterwave",
+        verifiedTxRef || txRef
+      );
+
+      console.log(`[FLW-WEBHOOK] ✅ Upgrade successfully verified & complete for ${finalUserId}`);
+      return res.status(200).send("Acknowledge Success");
+
+    } catch (processErr: any) {
+      console.error("[FLW-WEBHOOK-PROCESS-ERROR]", processErr);
+      return res.status(500).send("Error compiling activation");
+    }
+  }
+
+  return res.status(200).send("OK");
+});
+
+// 5. Submit manual billing deposit slip
+app.post("/api/premium/manual-submit", async (req, res) => {
+  const { userId, upgradeType, planName, paymentProof, email, name, transactionId } = req.body;
+  if (!userId || !upgradeType || !planName || !paymentProof || !email) {
+    return res.status(400).json({ error: "Missing required core parameters" });
+  }
+
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database offline" });
+
+  try {
+    const snap = await db.collection("siteSettings").doc("global").get();
+    const data = snap.exists ? snap.data() : {};
+
+    let amount = 0;
+    if (upgradeType === "celebrity") {
+      amount = planName === "yearly" ? (data?.celebrityPlanYearlyPrice ?? 4999) : (data?.celebrityPlanMonthlyPrice ?? 499);
+    } else if (upgradeType === "ai_premium") {
+      amount = planName === "yearly" ? (data?.aiPremiumYearlyPrice ?? 1200) : (data?.aiPremiumMonthlyPrice ?? 150);
+    } else {
+      return res.status(400).json({ error: "Invalid upgrade type specified" });
+    }
+
+    const currency = data?.currency || "USD";
+    const recordId = `manual-${userId}-${upgradeType}-${Date.now()}`;
+
+    const infoPayload = {
+      userId,
+      upgradeType,
+      planName,
+      amount,
+      currency,
+      paymentMethod: "manual",
+      paymentProof,
+      transactionId: transactionId || recordId,
+      paymentStatus: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      email,
+      name: name || "Premium Subscriber"
+    };
+
+    await db.collection("premiumPayments").doc(recordId).set(infoPayload);
+
+    // Flag actual profile as pending review block
+    if (upgradeType === "celebrity") {
+      await db.collection("celebrityProfiles").doc(userId).set({
+        upgradePending: true,
+        paymentProof: paymentProof,
+        upgradeDate: new Date().toISOString()
+      }, { merge: true });
+    } else {
+      await db.collection("celebrityProfiles").doc(userId).set({
+        aiUpgradePending: true,
+        aiPaymentProof: paymentProof,
+        aiUpgradeDate: new Date().toISOString()
+      }, { merge: true });
+    }
+
+    return res.json({ success: true, message: "Manual receipt uploaded! Super admin validation pending.", recordId });
+  } catch (error: any) {
+    console.error("[MANUAL-SUBMIT-CATCH]", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. Administrative - Save Premium Configs Settings
+app.post("/api/admin/premium/save-settings", async (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database offline" });
+
+  try {
+    const updates = req.body;
+    await db.collection("siteSettings").doc("global").set(updates, { merge: true });
+    return res.json({ success: true, message: "Administrative Settings changed!" });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// 7. Administrative - Get All Payments List
+app.get("/api/admin/premium/payments", async (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database offline" });
+
+  try {
+    const snap = await db.collection("premiumPayments").orderBy("createdAt", "desc").get();
+    const payments = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return res.json({ success: true, payments });
+  } catch (e: any) {
+    try {
+      const snapNoSort = await db.collection("premiumPayments").get();
+      const payments = snapNoSort.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      payments.sort((a: any, b: any) => {
+        const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return tB - tA;
+      });
+      return res.json({ success: true, payments });
+    } catch (innerErr: any) {
+      return res.status(500).json({ error: innerErr.message });
+    }
+  }
+});
+
+// 8. Administrative - Manual Approval activation
+app.post("/api/admin/premium/approve-manual", async (req, res) => {
+  const { recordId } = req.body;
+  if (!recordId) return res.status(400).json({ error: "Missing recordId" });
+
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database offline" });
+
+  try {
+    const docRef = db.collection("premiumPayments").doc(recordId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: "Manual payment not found." });
+    }
+
+    const p = docSnap.data();
+    if (p?.paymentStatus === "success") {
+      return res.json({ success: true, message: "Already verified success" });
+    }
+
+    await activateUpgrade(
+      db,
+      p?.userId,
+      p?.upgradeType,
+      p?.planName || "monthly",
+      p?.transactionId || recordId,
+      p?.amount || 0,
+      p?.currency || "USD",
+      "manual",
+      recordId
+    );
+
+    return res.json({ success: true, message: "Transaction approved and account upgraded successfully!" });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// 9. Administrative - Perform refund on a purchase record
+app.post("/api/admin/premium/refund", async (req, res) => {
+  const { recordId } = req.body;
+  if (!recordId) return res.status(400).json({ error: "RecordId parameter is required" });
+
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: "Database offline" });
+
+  try {
+    const docRef = db.collection("premiumPayments").doc(recordId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: "Payment record not found." });
+    }
+
+    const p = docSnap.data();
+    await docRef.update({
+      paymentStatus: "refunded",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    const { userId, upgradeType } = p || {};
+
+    if (upgradeType === "celebrity") {
+      await db.collection("celebrityProfiles").doc(userId).set({
+        isLocked: true, 
+        upgradePending: false,
+        verifiedCelebrity: false,
+        premiumCelebrity: false
+      }, { merge: true });
+
+      await db.collection("users").doc(userId).set({
+        verifiedCelebrity: false,
+        premiumCelebrity: false
+      }, { merge: true });
+
+    } else if (upgradeType === "ai_premium") {
+      await db.collection("celebrityProfiles").doc(userId).set({
+        aiPremium: false,
+        isAiSubscribed: false,
+        aiUpgradePending: false
+      }, { merge: true });
+
+      await db.collection("users").doc(userId).set({
+        aiPremium: false,
+        isAiSubscribed: false
+      }, { merge: true });
+
+      await db.collection("aiUsage").doc(userId).set({
+        planType: "free",
+        dailyLimit: 5,
+        maxDailyRequests: 5,
+        aiPremium: false,
+        remainingRequests: 5
+      }, { merge: true });
+    }
+
+    return res.json({ success: true, message: "Refund accomplished. Premium status revoked." });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // In-memory caching and rate-limiting structures to optimize API utilization and satisfy rules
 const lastRequestTime = new Map<string, number>(); // celebrityId -> lastTimestamp (cooldown system)
 const suggestionCache = new Map<string, { suggestions: string[], provider: string, expiresAt: number }>(); // messagingHash -> cachedSuggestions

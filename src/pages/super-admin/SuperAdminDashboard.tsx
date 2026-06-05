@@ -4,6 +4,7 @@ import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { uploadToCloudinary } from '../../lib/cloudinary';
 import { checkAndExpireAiPremium } from '../../lib/premiumCheck';
 import { Toast } from '../../components/Toast';
+import PaymentManagement from './PaymentManagement';
 import { 
   doc, getDoc, updateDoc, setDoc, collection, onSnapshot, query, where, deleteDoc, getDocs 
 } from 'firebase/firestore';
@@ -871,6 +872,7 @@ export const SuperAdminDashboard = () => {
     const navItems = [
         { id: 'dashboard', label: 'Overview', icon: <BarChart3 size={18} /> },
         { id: 'vip-activation', label: 'VIP Activation Settings', icon: <DollarSign size={18} /> },
+        { id: 'payments', label: 'Payment Management', icon: <CreditCard size={18} /> },
         { id: 'currency', label: 'Currency Selector', icon: <Globe size={18} /> },
         { id: 'bank', label: 'Bank Configuration', icon: <Building2 size={18} /> },
         { id: 'support-links', label: 'Support Links Settings', icon: <PhoneCall size={18} /> },
@@ -1110,87 +1112,212 @@ export const SuperAdminDashboard = () => {
                         {/* 2. VIP Activation Settings Tab */}
                         {activeTab === 'vip-activation' && (
                             <div className="space-y-8 font-sans">
-                                <div className="max-w-xl bg-slate-900/40 p-4 sm:p-6 md:p-10 border border-white/5 rounded-[2.5rem]">
-                                    <h3 className="text-xl font-bold uppercase tracking-widest text-white italic mb-6">VIP Activation Fee Configuration</h3>
-                                    <div className="space-y-6">
+                                {/* 1. Celebrity Upgrade Config card */}
+                                <div className="max-w-xl bg-slate-900/40 p-4 sm:p-6 md:p-10 border border-white/5 rounded-[2.5rem] space-y-6">
+                                    <div className="flex justify-between items-center border-b border-white/5 pb-4">
                                         <div>
-                                            <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-3">Escrow Activation Fee</label>
-                                            <div className="relative">
-                                                <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-lg text-primary">{currencySym}</span>
-                                                <input 
-                                                  type="number"
-                                                  value={siteSettings?.activationFee || ''}
-                                                  onChange={e => setSiteSettings({...siteSettings, activationFee: Number(e.target.value)})}
-                                                  className="w-full bg-black/40 border border-white/10 rounded-2xl p-5 pl-10 text-2xl font-bold focus:border-primary/50 outline-none text-white" 
-                                                />
-                                            </div>
-                                            <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider mt-2.5">Paid by celebrities to unlock full interactive panel features.</p>
+                                            <h3 className="text-lg font-bold uppercase tracking-wider text-white italic">Celebrity Premium Upgrades</h3>
+                                            <p className="text-[10px] text-white/35 font-mono uppercase tracking-widest mt-1">Manage VIP pricing structures and deactivation hooks</p>
                                         </div>
-                                        <button 
-                                          onClick={() => handleSaveGlobalSettings({ activationFee: siteSettings.activationFee })}
-                                          className="py-4 px-8 bg-primary text-black rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveGlobalSettings({
+                                            enableCelebrityUpgrade: siteSettings?.enableCelebrityUpgrade === false ? true : false
+                                          })}
+                                          className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            siteSettings?.enableCelebrityUpgrade !== false 
+                                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                              : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                          }`}
                                         >
-                                            <Save size={16} /> Save Activation Fee
+                                            {siteSettings?.enableCelebrityUpgrade !== false ? 'Upgrade On' : 'Upgrade Suspended'}
                                         </button>
                                     </div>
-                                </div>
 
-                                <div className="max-w-xl bg-slate-900/40 p-4 sm:p-6 md:p-10 border border-white/5 rounded-[2.5rem]">
-                                    <h3 className="text-xl font-bold uppercase tracking-widest text-white italic mb-2">AI Premium Subscription Configuration</h3>
-                                    <p className="text-[10px] text-white/45 uppercase font-black tracking-wider mb-6">Manage global parameters for the smart AI replies billing system</p>
                                     <div className="space-y-6">
-                                        <div>
-                                            <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-3">AI Subscription Amount</label>
-                                            <div className="relative">
-                                                <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-lg text-primary">
-                                                    {siteSettings?.aiSubCurrency === 'NGN' ? '₦' : '$'}
-                                                </span>
-                                                <input 
-                                                  type="number"
-                                                  value={siteSettings?.aiSubAmount || ''}
-                                                  placeholder="e.g. 199"
-                                                  onChange={e => setSiteSettings({...siteSettings, aiSubAmount: Number(e.target.value)})}
-                                                  className="w-full bg-black/40 border border-white/10 rounded-2xl p-5 pl-10 text-2xl font-bold focus:border-primary/50 outline-none text-white" 
-                                                />
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2">Monthly Plan Price (NGN)</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-primary">₦</span>
+                                                    <input 
+                                                      type="number"
+                                                      value={siteSettings?.celebrityPlanMonthlyPrice ?? 499}
+                                                      onChange={e => setSiteSettings({...siteSettings, celebrityPlanMonthlyPrice: Number(e.target.value)})}
+                                                      className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pl-8 font-extrabold text-white text-md focus:border-primary/50 outline-none" 
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2">Yearly Plan Price (NGN)</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-primary">₦</span>
+                                                    <input 
+                                                      type="number"
+                                                      value={siteSettings?.celebrityPlanYearlyPrice ?? 4999}
+                                                      onChange={e => setSiteSettings({...siteSettings, celebrityPlanYearlyPrice: Number(e.target.value)})}
+                                                      className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pl-8 font-extrabold text-white text-md focus:border-primary/50 outline-none" 
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-3">AI Subscription Currency</label>
-                                            <select 
-                                              value={siteSettings?.aiSubCurrency || 'USD'}
-                                              onChange={e => setSiteSettings({...siteSettings, aiSubCurrency: e.target.value})}
-                                              className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white focus:border-primary/50 outline-none font-medium"
-                                            >
-                                                <option value="USD">USD ($ - United States Dollar)</option>
-                                                <option value="NGN">NGN (₦ - Nigerian Naira)</option>
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-3">AI Payment Account Details</label>
+                                            <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2.5">Celebrity Manual payment details instruction description</label>
                                             <textarea 
-                                              value={siteSettings?.aiPaymentDetails || ''}
-                                              onChange={e => setSiteSettings({...siteSettings, aiPaymentDetails: e.target.value})}
-                                              placeholder="Type descriptive instructions, bank routing, account number or crypto wallet address for the AI subscription payout..."
-                                              rows={5}
+                                              value={siteSettings?.adminPaymentInstructions || ''}
+                                              onChange={e => setSiteSettings({...siteSettings, adminPaymentInstructions: e.target.value})}
+                                              placeholder="E.g. Pay your monthly/yearly bills to Opay escrow account listed below..."
+                                              rows={3}
                                               className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-semibold text-white outline-none focus:border-primary/50"
                                             />
                                         </div>
 
                                         <button 
-                                          onClick={() => handleSaveGlobalSettings({ 
-                                            aiSubAmount: siteSettings.aiSubAmount || 0,
-                                            aiSubCurrency: siteSettings.aiSubCurrency || 'USD',
-                                            aiPaymentDetails: siteSettings.aiPaymentDetails || ''
+                                          onClick={() => handleSaveGlobalSettings({
+                                            celebrityPlanMonthlyPrice: siteSettings?.celebrityPlanMonthlyPrice ?? 499,
+                                            celebrityPlanYearlyPrice: siteSettings?.celebrityPlanYearlyPrice ?? 4999,
+                                            activationFee: siteSettings?.celebrityPlanMonthlyPrice ?? 499, // mapping legacy fee variables.
+                                            adminPaymentInstructions: siteSettings?.adminPaymentInstructions || ''
                                           })}
-                                          className="py-4 px-8 bg-primary text-black rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
+                                          className="py-3 px-6 bg-primary text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
                                         >
-                                            <Save size={16} /> Save AI Subscription Options
+                                            <Save size={14} /> Save Celebrity Upgrades Config
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* 2. AI Upgrade Config card */}
+                                <div className="max-w-xl bg-slate-900/40 p-4 sm:p-6 md:p-10 border border-white/5 rounded-[2.5rem] space-y-6">
+                                    <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold uppercase tracking-wider text-white italic">AI Assists Premium Upgrades</h3>
+                                            <p className="text-[10px] text-white/35 font-mono uppercase tracking-widest mt-1">Configure Smart AI helper limits and pricing</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveGlobalSettings({
+                                            enableAiUpgrade: siteSettings?.enableAiUpgrade === false ? true : false
+                                          })}
+                                          className={`py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            siteSettings?.enableAiUpgrade !== false 
+                                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                              : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                          }`}
+                                        >
+                                            {siteSettings?.enableAiUpgrade !== false ? 'AI Sub On font' : 'AI Sub Suspended'}
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2">Monthly Plan Price (NGN)</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-primary">₦</span>
+                                                    <input 
+                                                      type="number"
+                                                      value={siteSettings?.aiPremiumMonthlyPrice ?? 150}
+                                                      onChange={e => setSiteSettings({...siteSettings, aiPremiumMonthlyPrice: Number(e.target.value)})}
+                                                      className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pl-8 font-extrabold text-white text-md focus:border-primary/50 outline-none" 
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2">Yearly Plan Price (NGN)</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-primary">₦</span>
+                                                    <input 
+                                                      type="number"
+                                                      value={siteSettings?.aiPremiumYearlyPrice ?? 1200}
+                                                      onChange={e => setSiteSettings({...siteSettings, aiPremiumYearlyPrice: Number(e.target.value)})}
+                                                      className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pl-8 font-extrabold text-white text-md focus:border-primary/50 outline-none" 
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2.5">AI Assistance Manual wire payment information</label>
+                                            <textarea 
+                                              value={siteSettings?.aiPaymentDetails || ''}
+                                              onChange={e => setSiteSettings({...siteSettings, aiPaymentDetails: e.target.value})}
+                                              placeholder="Specify step-by-step crypto wallet IDs, OPAY references or bank branch codes for the smart replies module..."
+                                              rows={3}
+                                              className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-semibold text-white outline-none focus:border-primary/50"
+                                            />
+                                        </div>
+
+                                        <button 
+                                          onClick={() => handleSaveGlobalSettings({
+                                            aiPremiumMonthlyPrice: siteSettings?.aiPremiumMonthlyPrice ?? 150,
+                                            aiPremiumYearlyPrice: siteSettings?.aiPremiumYearlyPrice ?? 1200,
+                                            aiSubAmount: siteSettings?.aiPremiumMonthlyPrice ?? 150, // legacy mapping variables.
+                                            aiPaymentDetails: siteSettings?.aiPaymentDetails || '',
+                                            aiSubCurrency: 'NGN'
+                                          })}
+                                          className="py-3 px-6 bg-primary text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
+                                        >
+                                            <Save size={14} /> Save AI Subscriptions Config
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 3. Processor Gateways Settings */}
+                                <div className="max-w-xl bg-slate-900/40 p-4 sm:p-6 md:p-10 border border-white/5 rounded-[2.5rem] space-y-6">
+                                    <div className="border-b border-white/5 pb-4">
+                                        <h3 className="text-lg font-bold uppercase tracking-wider text-white italic">Upgrade Merchant Processors</h3>
+                                        <p className="text-[10px] text-white/35 font-mono uppercase tracking-widest mt-1">Select active automatic or manual invoice clearing modes</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center bg-black/30 p-5 rounded-xl border border-white/5">
+                                            <div>
+                                                <p className="text-[10px] font-extrabold text-white uppercase tracking-wider">Automatic checkout gateway (Flutterwave)</p>
+                                                <p className="text-[9px] text-white/35 mt-1">Direct credit details, cards, or Bank USSD code payments verification.</p>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSaveGlobalSettings({
+                                                enableFlutterwave: siteSettings?.enableFlutterwave === false ? true : false
+                                              })}
+                                              className={`py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                                siteSettings?.enableFlutterwave !== false 
+                                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                                  : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                              }`}
+                                            >
+                                                {siteSettings?.enableFlutterwave !== false ? 'Active' : 'Suspended'}
+                                            </button>
+                                        </div>
+
+                                        <div className="flex justify-between items-center bg-black/30 p-5 rounded-xl border border-white/5">
+                                            <div>
+                                                <p className="text-[10px] font-extrabold text-white uppercase tracking-wider">Manual bank transfers gateway (SuperAdmin Approvals)</p>
+                                                <p className="text-[9px] text-white/35 mt-1">Curators upload a screenshot of bank wires to verify manual ledger credits.</p>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSaveGlobalSettings({
+                                                enableManualPayment: siteSettings?.enableManualPayment === false ? true : false
+                                              })}
+                                              className={`py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                                siteSettings?.enableManualPayment !== false 
+                                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                                  : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                              }`}
+                                            >
+                                                {siteSettings?.enableManualPayment !== false ? 'Active' : 'Suspended'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                        )}
+
+                        {/* 2.5 Payment Management Tab */}
+                        {activeTab === 'payments' && (
+                            <PaymentManagement />
                         )}
 
                         {/* 3. Currency Selector Tab */}
@@ -1211,7 +1338,7 @@ export const SuperAdminDashboard = () => {
                                         <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider mt-2.5">Adapts payment templates globally across upgraded pages.</p>
                                     </div>
                                     <button 
-                                      onClick={() => handleSaveGlobalSettings({ currency: siteSettings.currency })}
+                                      onClick={() => handleSaveGlobalSettings({ currency: siteSettings?.currency })}
                                       className="py-4 px-8 bg-primary text-black rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
                                     >
                                         <Save size={16} /> Commit Currency Symbol
@@ -1302,10 +1429,10 @@ export const SuperAdminDashboard = () => {
 
                                     <button 
                                       onClick={() => handleSaveGlobalSettings({
-                                        adminBankFormat: siteSettings.adminBankFormat || 'international',
-                                        adminBankName: siteSettings.adminBankName || '',
-                                        adminAccountNo: siteSettings.adminAccountNo || '',
-                                        adminAccountName: siteSettings.adminAccountName || '',
+                                        adminBankFormat: siteSettings?.adminBankFormat || 'international',
+                                        adminBankName: siteSettings?.adminBankName || '',
+                                        adminAccountNo: siteSettings?.adminAccountNo || '',
+                                        adminAccountName: siteSettings?.adminAccountName || '',
                                         adminRoutingNo: siteSettings?.adminRoutingNo || '',
                                         adminSwiftCode: siteSettings?.adminSwiftCode || '',
                                         adminBankAddress: siteSettings?.adminBankAddress || ''
@@ -1343,8 +1470,8 @@ export const SuperAdminDashboard = () => {
                                     </div>
                                     <button 
                                       onClick={() => handleSaveGlobalSettings({
-                                        whatsappLink: siteSettings.whatsappLink,
-                                        telegramLink: siteSettings.telegramLink
+                                        whatsappLink: siteSettings?.whatsappLink || '',
+                                        telegramLink: siteSettings?.telegramLink || ''
                                       })}
                                       className="py-4 px-8 bg-primary text-black rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
                                     >
@@ -2441,8 +2568,8 @@ export const SuperAdminDashboard = () => {
                                     </div>
                                     <button 
                                       onClick={() => handleSaveGlobalSettings({
-                                        appName: siteSettings.appName,
-                                        appDescription: siteSettings.appDescription
+                                        appName: siteSettings?.appName || '',
+                                        appDescription: siteSettings?.appDescription || ''
                                       })}
                                       className="py-4 px-8 bg-primary text-black rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
                                     >
@@ -2466,7 +2593,7 @@ export const SuperAdminDashboard = () => {
                                                             Active Favicon Configured
                                                         </span>
                                                         <p className="text-[9px] font-mono text-white/40 truncate max-w-[250px] mt-1">
-                                                            {siteSettings.faviconUrl}
+                                                            {siteSettings?.faviconUrl}
                                                         </p>
                                                     </div>
                                                 ) : (
