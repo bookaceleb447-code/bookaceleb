@@ -56,13 +56,23 @@ if (rawGroq) {
   console.log("  - GROQ_API_KEY: MISSING ❌");
 }
 
+export function formatFirebasePrivateKey(key: string | undefined): string {
+  if (!key) return "";
+  let clean = key.trim().replace(/^["']|["']$/g, "").trim();
+  clean = clean.replace(/\\n/g, '\n');
+  return clean;
+}
+
 export function isValidFirebasePrivateKey(key: string | undefined): boolean {
   if (!key) return false;
-  const clean = key.trim();
+  const clean = formatFirebasePrivateKey(key);
   return clean.includes("-----BEGIN PRIVATE KEY-----") && clean.includes("-----END PRIVATE KEY-----");
 }
 
 const rawFirebaseKey = process.env.FIREBASE_PRIVATE_KEY;
+const rawFirebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+const rawFirebaseProjectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+
 if (rawFirebaseKey) {
   const isVal = isValidFirebasePrivateKey(rawFirebaseKey);
   console.log(`  - FIREBASE_PRIVATE_KEY: EXISTS (Length: ${rawFirebaseKey.length}, Valid PEM: ${isVal})`);
@@ -70,25 +80,89 @@ if (rawFirebaseKey) {
   console.log("  - FIREBASE_PRIVATE_KEY: MISSING ❌");
 }
 
+if (rawFirebaseClientEmail) {
+  console.log(`  - FIREBASE_CLIENT_EMAIL: EXISTS (Value: ${rawFirebaseClientEmail})`);
+} else {
+  console.log("  - FIREBASE_CLIENT_EMAIL: MISSING ❌");
+}
+
+if (rawFirebaseProjectId) {
+  console.log(`  - FIREBASE_PROJECT_ID: EXISTS (Value: ${rawFirebaseProjectId})`);
+} else {
+  console.log("  - FIREBASE_PROJECT_ID: MISSING ❌");
+}
+
 const dbIdLog = process.env.FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || "(default)";
 console.log(`  - FIRESTORE_DATABASE_ID: Target database ID is "${dbIdLog}"`);
 console.log("==================================================");
+
+// Strict Startup Credential Validation
+function validateFirebaseAdminCredentials() {
+  // We only run deep validation checks outside of pure compile builds or local mocks where Firebase isn't defined
+  const isProdOrVercel = !!process.env.VERCEL || process.env.NODE_ENV === "production";
+  const errors: string[] = [];
+
+  const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || "bookaceleb-e9162";
+
+  // 1. Verify FIREBASE_PRIVATE_KEY exists
+  if (!rawKey) {
+    errors.push("❌ FIREBASE_PRIVATE_KEY is missing/empty.");
+  } else {
+    const cleanKey = formatFirebasePrivateKey(rawKey);
+    if (!cleanKey.includes("-----BEGIN PRIVATE KEY-----") || !cleanKey.includes("-----END PRIVATE KEY-----")) {
+      errors.push("❌ FIREBASE_PRIVATE_KEY format is invalid (must contain '-----BEGIN PRIVATE KEY-----' and '-----END PRIVATE KEY-----').");
+    }
+  }
+
+  // 2. Verify FIREBASE_CLIENT_EMAIL exists
+  if (!clientEmail) {
+    errors.push("❌ FIREBASE_CLIENT_EMAIL is missing/empty.");
+  } else if (!clientEmail.includes("@")) {
+    errors.push(`❌ FIREBASE_CLIENT_EMAIL format is invalid: "${clientEmail}"`);
+  }
+
+  // 3. Verify FIREBASE_PROJECT_ID exists
+  if (!projectId || projectId === "placeholder-project-id") {
+    errors.push("❌ FIREBASE_PROJECT_ID is missing/empty.");
+  }
+
+  if (errors.length > 0) {
+    console.error("\n=================================================================================");
+    console.error("🚒 [CRITICAL STARTUP FAILURE] Firebase Admin Credentials Incomplete!");
+    console.error("=================================================================================");
+    errors.forEach(err => console.error(err));
+    console.error("\n💡 HOW TO ADD THIS ON VERCEL:");
+    console.error("1. Go to your Vercel Dashboard -> Project Settings -> Environment Variables.");
+    console.error("2. Add the following keys with exact values copying from your Service Account JSON:");
+    console.error("   - FIREBASE_PROJECT_ID   : e.g. 'bookaceleb-e9162'");
+    console.error("   - FIREBASE_CLIENT_EMAIL : e.g. 'firebase-adminsdk-fbsvc@bookaceleb-e9162.iam.gserviceaccount.com'");
+    console.error("   - FIREBASE_PRIVATE_KEY  : Paste the entire BEGIN...END block. Vercel preserves multiline keys perfectly.");
+    console.error("=================================================================================\n");
+
+    // Prevent application startup if Firebase Admin credentials are incomplete
+    throw new Error(`[STARTUP_FAIL] Incomplete Firebase Credentials: ${errors.join(" | ")}`);
+  } else {
+    console.log("🛰️ [DATABASE_VALIDATOR] Credentials validated and ready.");
+  }
+}
+
+// Trigger initial verification on load of server.ts
+validateFirebaseAdminCredentials();
 
 // Initialize Firebase Admin lazily to avoid crashing on startup if keys are missing
 let db: any = null;
 let connectionAttemptsCount = 0;
 
 function getDatabaseId() {
-  // 1. Check environment variables (precedence)
   if (process.env.FIRESTORE_DATABASE_ID) return process.env.FIRESTORE_DATABASE_ID;
   if (process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID) return process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID;
 
-  // 2. If running on Vercel or live server, defaults to "(default)" standard production database
   if (process.env.VERCEL) {
     return "(default)";
   }
 
-  // 3. Try to read from local config inside sandbox if present
   try {
     const configPath = path.join(process.cwd(), "firebase-applet-config.json");
     if (fs.existsSync(configPath)) {
@@ -105,6 +179,9 @@ function getDatabaseId() {
 }
 
 function getProjectId() {
+  if (process.env.FIREBASE_PROJECT_ID) {
+    return process.env.FIREBASE_PROJECT_ID;
+  }
   if (process.env.VITE_FIREBASE_PROJECT_ID) {
     return process.env.VITE_FIREBASE_PROJECT_ID;
   }
@@ -146,8 +223,6 @@ function getDb(forceRebuild = false) {
   const projectId = getProjectId();
   const startTime = performance.now();
 
-  // If we are on Vercel or any non-Google cloud environment and do not have FIREBASE_PRIVATE_KEY, do not initialize Admin SDK.
-  // This completely avoids hanging Firestore connections due to default credential lookup timeouts.
   const isGoogleEnvironment = process.env.K_SERVICE || process.env.K_REVISION || process.env.GOOGLE_CLOUD_PROJECT;
   if (!privateKey && !isGoogleEnvironment) {
     console.warn("⚠️ [DATABASE] No FIREBASE_PRIVATE_KEY detected outside of Google Cloud. Skipping Admin SDK initialization to prevent auth hangs, using fallback methods.");
@@ -157,10 +232,13 @@ function getDb(forceRebuild = false) {
   if (!(admin.apps && admin.apps.length)) {
     try {
       if (privateKey) {
+        const cleanPrivateKey = formatFirebasePrivateKey(privateKey);
+        const cleanClientEmail = process.env.FIREBASE_CLIENT_EMAIL || `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
+        
         const adminConfig = {
           projectId: projectId,
-          clientEmail: `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`,
-          privateKey: privateKey.replace(/\\n/g, '\n')
+          clientEmail: cleanClientEmail,
+          privateKey: cleanPrivateKey
         };
         admin.initializeApp({
           credential: admin.credential.cert(adminConfig),
@@ -168,7 +246,6 @@ function getDb(forceRebuild = false) {
         });
         console.log(`✅ [DATABASE] Firebase Admin successfully initialized using private key cert credentials for project: ${projectId}`);
       } else {
-        // Fallback to default application credentials natively available in Cloud Run env
         admin.initializeApp({
           projectId: projectId,
           databaseURL: `https://${projectId}.firebaseio.com`
