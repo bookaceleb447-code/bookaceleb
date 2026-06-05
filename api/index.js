@@ -29,6 +29,28 @@ function isValidGroqApiKey(key) {
   }
   return true;
 }
+console.log("==================================================");
+console.log("\u{1F50D} [INIT] INVESTIGATING ENVIRONMENT CONFIGURATION ON SERVER STARTUP");
+console.log(`\u{1F30D} Env node_env: ${process.env.NODE_ENV || "development"}`);
+console.log(`\u{1F310} Hosting Environment: ${process.env.VERCEL ? "Vercel Serverless Function" : "Google Cloud Run / Local Sandbox"}`);
+console.log(`\u{1F4E6} Loaded api keys details:`);
+var rawGemini = process.env.GEMINI_API_KEY;
+if (rawGemini) {
+  const isVal = isValidGeminiApiKey(rawGemini);
+  const cleaned = rawGemini.trim().replace(/^["']|["']$/g, "").trim();
+  console.log(`  - GEMINI_API_KEY: EXISTS (Length: ${rawGemini.length}, Starts with AIzaSy: ${cleaned.startsWith("AIzaSy")}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)}, Valid: ${isVal})`);
+} else {
+  console.log("  - GEMINI_API_KEY: MISSING \u274C");
+}
+var rawGroq = process.env.GROQ_API_KEY;
+if (rawGroq) {
+  const isVal = isValidGroqApiKey(rawGroq);
+  const cleaned = rawGroq.trim().replace(/^["']|["']$/g, "").trim();
+  console.log(`  - GROQ_API_KEY: EXISTS (Length: ${rawGroq.length}, Starts with gsk_: ${cleaned.startsWith("gsk_")}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)}, Valid: ${isVal})`);
+} else {
+  console.log("  - GROQ_API_KEY: MISSING \u274C");
+}
+console.log("==================================================");
 var db = null;
 function getDatabaseId() {
   if (process.env.FIRESTORE_DATABASE_ID) return process.env.FIRESTORE_DATABASE_ID;
@@ -48,29 +70,50 @@ function getDatabaseId() {
   }
   return "(default)";
 }
+function getProjectId() {
+  if (process.env.VITE_FIREBASE_PROJECT_ID) {
+    return process.env.VITE_FIREBASE_PROJECT_ID;
+  }
+  try {
+    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      if (data.projectId) {
+        return data.projectId;
+      }
+    }
+  } catch (err) {
+  }
+  return "placeholder-project-id";
+}
 function getDb() {
   if (db) return db;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const projectId = "bookaceleb-e9162";
+  const projectId = getProjectId();
+  const isGoogleEnvironment = process.env.K_SERVICE || process.env.K_REVISION || process.env.GOOGLE_CLOUD_PROJECT;
+  if (!privateKey && !isGoogleEnvironment) {
+    console.warn("\u26A0\uFE0F No FIREBASE_PRIVATE_KEY detected outside of Google Cloud. Skipping Admin SDK to prevent auth hangs, using lightweight REST fallback instead.");
+    return null;
+  }
   if (!(admin.apps && admin.apps.length)) {
     try {
       if (privateKey) {
         const adminConfig = {
           projectId,
-          clientEmail: "firebase-adminsdk-fbsvc@bookaceleb-e9162.iam.gserviceaccount.com",
+          clientEmail: `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`,
           privateKey: privateKey.replace(/\\n/g, "\n")
         };
         admin.initializeApp({
           credential: admin.credential.cert(adminConfig),
           databaseURL: `https://${projectId}.firebaseio.com`
         });
-        console.log("\u2705 Firebase Admin successfully initialized using private key cert credentials.");
+        console.log(`\u2705 Firebase Admin successfully initialized using private key cert credentials for project: ${projectId}`);
       } else {
         admin.initializeApp({
           projectId,
           databaseURL: `https://${projectId}.firebaseio.com`
         });
-        console.log("\u2705 Firebase Admin successfully initialized using Google Application Default Credentials.");
+        console.log(`\u2705 Firebase Admin successfully initialized using Google Application Default Credentials for project: ${projectId}`);
       }
     } catch (error) {
       console.error("\u274C Failed to initialize Firebase Admin:", error);
@@ -124,31 +167,29 @@ async function fetchDocumentWithFallback(collectionName, docId, token, firestore
         return docSnap.data();
       }
     } catch (err) {
-      console.warn(`⚠️ Firebase Admin fetch failed for custom DB ${collectionName}/${docId}: ${err.message}.`);
+      console.warn(`\u26A0\uFE0F Firebase Admin fetch failed for custom DB ${collectionName}/${docId}: ${err.message}.`);
     }
   }
-
   try {
     if (admin && admin.apps && admin.apps.length > 0) {
       const defaultDb = admin.firestore();
       if (defaultDb && defaultDb !== firestore) {
         const defaultDocSnap = await defaultDb.collection(collectionName).doc(docId).get();
         if (defaultDocSnap.exists) {
-          console.log(`✅ [FAILSAFE DEFAULT DB] Loaded ${collectionName}/${docId} successfully from (default) database.`);
+          console.log(`\u2705 [FAILSAFE DEFAULT DB] Loaded ${collectionName}/${docId} successfully from (default) database.`);
           return defaultDocSnap.data();
         }
       }
     }
   } catch (err) {
-    console.warn(`⚠️ Firebase Admin fetch failed for default DB ${collectionName}/${docId}: ${err.message}.`);
+    console.warn(`\u26A0\uFE0F Firebase Admin fetch failed for default DB ${collectionName}/${docId}: ${err.message}.`);
   }
-
   if (token) {
     try {
       const databaseId = getDatabaseId();
-      const projectId = "bookaceleb-e9162";
+      const projectId = getProjectId();
       const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/${collectionName}/${docId}`;
-      console.log(`📡 [FAILSAFE REST] Fetching ${url} with token...`);
+      console.log(`\u{1F4E1} [FAILSAFE REST] Fetching ${url} with token...`);
       const response = await fetch(url, {
         headers: {
           "Authorization": `Bearer ${token}`
@@ -157,19 +198,18 @@ async function fetchDocumentWithFallback(collectionName, docId, token, firestore
       if (response.ok) {
         const json = await response.json();
         const parsed = parseFirestoreRestDoc(json);
-        console.log(`✅ [FAILSAFE REST] Loaded ${collectionName}/${docId} successfully.`);
+        console.log(`\u2705 [FAILSAFE REST] Loaded ${collectionName}/${docId} successfully.`);
         return parsed;
       } else {
-        console.error(`❌ [FAILSAFE REST] Failed to load ${collectionName}/${docId}. Status: ${response.status} - ${response.statusText}`);
+        console.error(`\u274C [FAILSAFE REST] Failed to load ${collectionName}/${docId}. Status: ${response.status} - ${response.statusText}`);
       }
     } catch (err) {
-      console.error(`❌ [FAILSAFE REST] Error fetching ${collectionName}/${docId} from REST API:`, err);
+      console.error(`\u274C [FAILSAFE REST] Error fetching ${collectionName}/${docId} from REST API:`, err);
     }
-
     try {
-      const projectId = "bookaceleb-e9162";
+      const projectId = getProjectId();
       const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}`;
-      console.log(`📡 [FAILSAFE REST DEFAULT DB] Fetching ${url} with token...`);
+      console.log(`\u{1F4E1} [FAILSAFE REST DEFAULT DB] Fetching ${url} with token...`);
       const response = await fetch(url, {
         headers: {
           "Authorization": `Bearer ${token}`
@@ -178,11 +218,11 @@ async function fetchDocumentWithFallback(collectionName, docId, token, firestore
       if (response.ok) {
         const json = await response.json();
         const parsed = parseFirestoreRestDoc(json);
-        console.log(`✅ [FAILSAFE REST DEFAULT DB] Loaded ${collectionName}/${docId} successfully.`);
+        console.log(`\u2705 [FAILSAFE REST DEFAULT DB] Loaded ${collectionName}/${docId} successfully.`);
         return parsed;
       }
     } catch (err) {
-      console.error(`❌ [FAILSAFE REST DEFAULT DB] Error fetch fallback:`, err);
+      console.error(`\u274C [FAILSAFE REST DEFAULT DB] Error fetch fallback:`, err);
     }
   }
   return null;
@@ -191,6 +231,64 @@ var app = express();
 app.use(express.json());
 app.get(["/api/health", "/health"], (req, res) => {
   res.json({ status: "ok", firebaseAdmin: !!getDb() });
+});
+app.get(["/api/admin/test-groq", "/admin/test-groq"], async (req, res) => {
+  const firestore = getDb();
+  let keyToTest = process.env.GROQ_API_KEY || "";
+  if (firestore) {
+    try {
+      const snap = await firestore.collection("adminSettings").doc("groq").get();
+      if (snap.exists && snap.data()?.apiKey) {
+        keyToTest = snap.data()?.apiKey.trim();
+        console.log("[GROQ-TEST] Loaded key from adminSettings/groq to run diagnostics check.");
+      }
+    } catch (dbErr) {
+      console.warn("[GROQ-TEST] Failed to fetch key from adminSettings/groq, fallback to .env:", dbErr);
+    }
+  }
+  if (!keyToTest) {
+    return res.status(400).json({
+      success: false,
+      error: "No Groq API Key has been configured in .env or administrative settings."
+    });
+  }
+  console.log(`[GROQ-TEST] Initiating diagnostic call with key: ${keyToTest.substring(0, 8)}...`);
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${keyToTest.trim()}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: "Identify yourself with 'GROQ_VERIFIED' and say hi!" }],
+        max_tokens: 35
+      })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).json({
+        success: false,
+        status: response.status,
+        error: errorText
+      });
+    }
+    const payload = await response.json();
+    const textResult = payload?.choices?.[0]?.message?.content || "No message body found";
+    return res.json({
+      success: true,
+      status: response.status,
+      modelUsed: "llama-3.3-70b-versatile",
+      message: textResult,
+      keyUsedPreview: `${keyToTest.substring(0, 10)}...`
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message || String(error)
+    });
+  }
 });
 app.post(["/api/admin/verify-celebrity", "/admin/verify-celebrity"], async (req, res) => {
   const { celebId } = req.body;
@@ -268,27 +366,47 @@ async function generateWithLiteLLM(geminiApiKey, groqApiKey, profileContext, for
   let suggestions = [];
   let lastErr = null;
   let geminiQuotaExceeded = false;
+  console.log("\n==================================================");
+  console.log("\u{1F4C8} [LiteLLM Router] Starting smart replies generation workflow...");
+  console.log("   - Request status: ACTIVE");
+  console.log(`   - Output replies requested: ${desiredRepliesCount}`);
+  console.log(`   - History context size: ${formattedHistory.split("\n").length} chat log entries`);
+  console.log(`   - Profile context size: ${profileContext.length} characters`);
+  console.log(`   - Latest Fan query: "${lastFanText}"`);
+  console.log("\u{1F4DD} [LiteLLM Router] Runtime environment variables state check:");
+  const envGemini = process.env.GEMINI_API_KEY;
+  const envGroq = process.env.GROQ_API_KEY;
+  console.log(`   - process.env.GEMINI_API_KEY: ${envGemini ? `EXISTS (Length: ${envGemini.length}, Valid schema: ${isValidGeminiApiKey(envGemini)})` : "MISSING \u274C"}`);
+  console.log(`   - process.env.GROQ_API_KEY: ${envGroq ? `EXISTS (Length: ${envGroq.length}, Valid schema: ${isValidGroqApiKey(envGroq)})` : "MISSING \u274C"}`);
   const geminiKeysToTry = [];
   if (geminiApiKey && geminiApiKey !== "undefined" && geminiApiKey.trim() !== "") {
     const cleaned = geminiApiKey.trim().replace(/^["']|["']$/g, "").trim();
     if (isValidGeminiApiKey(cleaned)) {
       geminiKeysToTry.push(cleaned);
+      console.log(`   - Prioritizing dynamic database Gemini API key (Length: ${cleaned.length}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)})`);
+    } else {
+      console.warn(`   - Warning: Dynamic db Gemini API key candidate has invalid format: "${cleaned.slice(0, Math.min(6, cleaned.length))}..."`);
     }
   }
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "undefined" && process.env.GEMINI_API_KEY.trim() !== "") {
-    const envKey = process.env.GEMINI_API_KEY.trim().replace(/^["']|["']$/g, "").trim();
+  if (envGemini && envGemini !== "undefined" && envGemini.trim() !== "") {
+    const envKey = envGemini.trim().replace(/^["']|["']$/g, "").trim();
     if (isValidGeminiApiKey(envKey) && !geminiKeysToTry.includes(envKey)) {
       geminiKeysToTry.push(envKey);
+      console.log(`   - Enlisting environment Gemini API key (Length: ${envKey.length}, Masked: ${envKey.slice(0, 6)}...${envKey.slice(-4)})`);
     }
   }
   if (geminiKeysToTry.length === 0) {
-    console.log("\u2139\uFE0F [LiteLLM Router] Skipping primary Gemini routes: No configured or valid Gemini API keys found.");
+    console.warn("\u26A0\uFE0F [LiteLLM Router] Skipping primary Gemini routes: No configured or valid Gemini API keys identified in system.");
   }
   let geminiSuccess = false;
   for (let k = 0; k < geminiKeysToTry.length; k++) {
     const activeKey = geminiKeysToTry[k];
+    const maskedKeyStr = `${activeKey.slice(0, 6)}...${activeKey.slice(-4)}`;
     try {
-      console.log(`\u{1F916} [LiteLLM Router] Routing request to primary model: gemini/gemini-3.5-flash (attempt key ${k + 1}/${geminiKeysToTry.length})...`);
+      console.log(`\u{1F916} [LiteLLM Router] [INITIALIZATION] Preparing GoogleGenAI client (instance ${k + 1}/${geminiKeysToTry.length})...`);
+      console.log(`   - Model: gemini-3.5-flash`);
+      console.log(`   - Key Masked: ${maskedKeyStr}`);
+      console.log(`   - Key Prefix Valid: ${activeKey.startsWith("AIzaSy")}`);
       const ai = new GoogleGenAI({
         apiKey: activeKey,
         httpOptions: {
@@ -297,6 +415,8 @@ async function generateWithLiteLLM(geminiApiKey, groqApiKey, profileContext, for
           }
         }
       });
+      console.log("\u{1F916} [LiteLLM Router] [INITIALIZATION] GoogleGenAI client successfully constructed.");
+      console.log("\u{1F4C8} [LiteLLM Router] [REQUEST] Dispatching generateContent with dynamic JSON schema to Gemini...");
       const timeoutPromise = new Promise(
         (_, reject) => setTimeout(() => reject(new Error("Primary provider gemini-3.5-flash timed out (25s limit reached).")), 25e3)
       );
@@ -332,7 +452,11 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
       if (Array.isArray(parsed) && parsed.length > 0) {
         suggestions = parsed.slice(0, desiredRepliesCount);
         const duration2 = Date.now() - startTime;
-        console.log(`\u2705 [LiteLLM Router] gemini-3.5-flash resolved successfully using key entry ${k + 1} in ${duration2}ms.`);
+        console.log(`\u2705 [LiteLLM Router] [RESPONSE] OK (Status 200 equivalent)`);
+        console.log(`   - Provider: gemini-3.5-flash`);
+        console.log(`   - Key attempt: ${k + 1} succeeded`);
+        console.log(`   - Latency: ${duration2}ms`);
+        console.log(`   - Output candidates: ${JSON.stringify(suggestions)}`);
         geminiSuccess = true;
         return {
           suggestions,
@@ -344,7 +468,21 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
         };
       }
     } catch (err) {
+      const duration2 = Date.now() - startTime;
       let errMsg = err.message || String(err);
+      const isTimeout = errMsg.toLowerCase().includes("timeout") || errMsg.toLowerCase().includes("timed out");
+      console.error(`\u274C [LiteLLM Router] [RESPONSE] Gemini-3.5-flash structured request failed (Latency: ${duration2}ms)`);
+      if (isTimeout) {
+        console.error(`   - Error Type: TIMEOUT_ERROR`);
+        console.error(`   - Error Details: ${errMsg}`);
+      } else {
+        console.error(`   - Error Type: API_ERROR`);
+        console.error(`   - Error Details: ${errMsg}`);
+        if (err.stack) {
+          console.error(`   - Error Stack:
+${err.stack}`);
+        }
+      }
       if (errMsg.includes("API Key not found") || errMsg.includes("API_KEY_INVALID") || errMsg.toLowerCase().includes("api key is invalid") || errMsg.toLowerCase().includes("invalid api key")) {
         errMsg = "API Key not found or invalid";
       }
@@ -352,12 +490,11 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
         geminiQuotaExceeded = true;
         console.warn("\u26A0\uFE0F [LiteLLM Router] Checked Gemini response indicates resource or rate quota execution limit hit.");
       }
-      console.warn(`\u26A0\uFE0F [LiteLLM Router] Primary model (gemini-3.5-flash) failed/timed out with key index ${k}: ${errMsg}.`);
       lastErr = err;
     }
     if (suggestions.length === 0) {
       try {
-        console.log(`\u{1F916} [LiteLLM Router] Retrying gemini-3.5-flash using plain-text prompt without schema constraints (using key entry ${k + 1})...`);
+        console.log(`\u{1F916} [LiteLLM Router] [RETRY] Falling back to plain-text prompt without schema constraints (key index ${k + 1})...`);
         const ai = new GoogleGenAI({
           apiKey: activeKey,
           httpOptions: {
@@ -366,6 +503,7 @@ Suggest exactly ${desiredRepliesCount} beautiful, emotionally smart, fact-aware 
             }
           }
         });
+        console.log("\u{1F4C8} [LiteLLM Router] [REQUEST] Dispatching plain text generateContent to Gemini...");
         const timeoutTextPromise = new Promise(
           (_, reject) => setTimeout(() => reject(new Error("Primary text fallback timed out (25s limit reached).")), 25e3)
         );
@@ -395,7 +533,10 @@ Based on the latest fan query and celebrity facts above, list exactly ${desiredR
         if (lines.length > 0) {
           suggestions = lines.slice(0, desiredRepliesCount);
           const duration2 = Date.now() - startTime;
-          console.log(`\u2705 [LiteLLM Router] gemini-3.5-flash plain-text fallback resolved successfully using key entry ${k + 1} in ${duration2}ms.`);
+          console.log(`\u2705 [LiteLLM Router] [RESPONSE] OK (Status 200 equivalent)`);
+          console.log(`   - Provider: gemini-3.5-flash (Plain-Text mode)`);
+          console.log(`   - Latency: ${duration2}ms`);
+          console.log(`   - Output candidates: ${JSON.stringify(suggestions)}`);
           geminiSuccess = true;
           return {
             suggestions,
@@ -407,34 +548,50 @@ Based on the latest fan query and celebrity facts above, list exactly ${desiredR
           };
         }
       } catch (err) {
+        const duration2 = Date.now() - startTime;
         let errMsg = err.message || String(err);
-        if (errMsg.includes("API Key not found") || errMsg.includes("API_KEY_INVALID") || errMsg.toLowerCase().includes("api key is invalid") || errMsg.toLowerCase().includes("invalid api key")) {
-          errMsg = "API Key not found or invalid";
+        const isTimeout = errMsg.toLowerCase().includes("timeout") || errMsg.toLowerCase().includes("timed out");
+        console.error(`\u274C [LiteLLM Router] [RESPONSE] Gemini-3.5-flash plain-text request failed (Latency: ${duration2}ms)`);
+        if (isTimeout) {
+          console.error(`   - Error Type: TIMEOUT_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+        } else {
+          console.error(`   - Error Type: API_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+          if (err.stack) {
+            console.error(`   - Error Stack:
+${err.stack}`);
+          }
         }
         if (errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("exhausted") || errMsg.toLowerCase().includes("429") || errMsg.toLowerCase().includes("resource_exhausted") || errMsg.toLowerCase().includes("limit exceeded")) {
           geminiQuotaExceeded = true;
         }
-        console.warn(`\u26A0\uFE0F [LiteLLM Router] Primary model plain text generation failed with key index ${k}: ${errMsg}.`);
         lastErr = err;
       }
     }
   }
-  if (groqApiKey && groqApiKey !== "undefined" && groqApiKey.trim() !== "") {
-    try {
-      console.log(`\u26A1 [LiteLLM Router] Active failover mapping in progress! Dispatching request to Groq LLaMA 3.3 70B...`);
-      const payload = {
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: `${platformInstruction}
+  if (!geminiSuccess) {
+    console.warn("\u26A0\uFE0F [LiteLLM Router] [FALLBACK ACTIVATED] Primary Gemini routing block failed or timed out.");
+    console.warn(`   - Reason for fallback trigger: ${lastErr?.message || "All Gemini API key attempts failed."}`);
+    if (groqApiKey && groqApiKey !== "undefined" && groqApiKey.trim() !== "") {
+      const groqClean = groqApiKey.trim().replace(/^["']|["']$/g, "").trim();
+      const startTimeGroq = Date.now();
+      try {
+        console.log(`\u26A1 [LiteLLM Router] [INITIALIZATION] Preparing Groq fallover block (model: llama-3.3-70b-versatile)...`);
+        console.log(`   - Groq API Key Masked: ${groqClean.slice(0, 6)}...${groqClean.slice(-4)}`);
+        const payload = {
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: `${platformInstruction}
 
 CRITICAL ENRICHED CONTEXT FACTS:
 ${profileContext}`
-          },
-          {
-            role: "user",
-            content: `
+            },
+            {
+              role: "user",
+              content: `
 Conversation chat logs:
 ${formattedHistory}
 
@@ -445,59 +602,81 @@ Based on the official celebrity instructions and facts above, generate exactly $
 Format the output as a clean, standardized JSON array containing exactly ${desiredRepliesCount} string candidates of premium answers:
 ["option 1", "option 2", ...]
 `
-          }
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" }
-      };
-      const controller = new AbortController();
-      const signalTimeoutId = setTimeout(() => controller.abort(), 25e3);
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${groqApiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(signalTimeoutId);
-      if (!response.ok) {
-        throw new Error(`Groq server returned rate-limited or error HTTP status code: ${response.status}`);
-      }
-      const body = await response.json();
-      const rawText = body?.choices?.[0]?.message?.content || "[]";
-      let parsed = JSON.parse(rawText);
-      if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.suggestions)) {
-        parsed = parsed.suggestions;
-      } else if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.replies)) {
-        parsed = parsed.replies;
-      } else if (parsed && !Array.isArray(parsed)) {
-        const potentialArr = Object.values(parsed).find((v) => Array.isArray(v));
-        if (potentialArr) parsed = potentialArr;
-      }
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        suggestions = parsed.slice(0, desiredRepliesCount);
-        const duration2 = Date.now() - startTime;
-        console.log(`\u2705 [LiteLLM Router] Fallback model groq/llama-3.3-70b-versatile successfully generated replies in ${duration2}ms!`);
-        return {
-          suggestions,
-          provider: "groq",
-          responseTime: duration2,
-          fallbackActivated: true,
-          status: "success",
-          geminiQuotaExceeded
+            }
+          ],
+          temperature: 0.7,
+          response_format: { type: "json_object" }
         };
+        console.log("\u{1F4C8} [LiteLLM Router] [REQUEST] Dispatching POST request to Groq HTTP endpoint...");
+        const controller = new AbortController();
+        const signalTimeoutId = setTimeout(() => controller.abort(), 25e3);
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${groqClean}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(signalTimeoutId);
+        if (!response.ok) {
+          throw new Error(`Groq server returned rate-limited or error HTTP status code: ${response.status} - ${response.statusText}`);
+        }
+        const body = await response.json();
+        const rawText = body?.choices?.[0]?.message?.content || "[]";
+        let parsed = JSON.parse(rawText);
+        if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.suggestions)) {
+          parsed = parsed.suggestions;
+        } else if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.replies)) {
+          parsed = parsed.replies;
+        } else if (parsed && !Array.isArray(parsed)) {
+          const potentialArr = Object.values(parsed).find((v) => Array.isArray(v));
+          if (potentialArr) parsed = potentialArr;
+        }
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          suggestions = parsed.slice(0, desiredRepliesCount);
+          const duration2 = Date.now() - startTime;
+          const groqDuration = Date.now() - startTimeGroq;
+          console.log(`\u2705 [LiteLLM Router] [RESPONSE] OK (Status 200 equivalent via Groq)`);
+          console.log(`   - Provider: groq/llama-3.3-70b-versatile`);
+          console.log(`   - Groq Latency: ${groqDuration}ms`);
+          console.log(`   - Total Latency: ${duration2}ms`);
+          console.log(`   - Output candidates: ${JSON.stringify(suggestions)}`);
+          return {
+            suggestions,
+            provider: "groq",
+            responseTime: duration2,
+            fallbackActivated: true,
+            status: "success",
+            geminiQuotaExceeded
+          };
+        }
+      } catch (err) {
+        const duration2 = Date.now() - startTime;
+        let errMsg = err.message || String(err);
+        const isTimeout = errMsg.toLowerCase().includes("timeout") || errMsg.toLowerCase().includes("timed out") || errMsg.toLowerCase().includes("aborted");
+        console.error(`\u274C [LiteLLM Router] [RESPONSE] Fallback Groq LLaMA model failed (Latency: ${duration2}ms)`);
+        if (isTimeout) {
+          console.error(`   - Error Type: TIMEOUT_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+        } else {
+          console.error(`   - Error Type: API_ERROR`);
+          console.error(`   - Error Details: ${errMsg}`);
+          if (err.stack) {
+            console.error(`   - Error Stack:
+${err.stack}`);
+          }
+        }
+        lastErr = err;
       }
-    } catch (err) {
-      console.error(`\u274C [LiteLLM Router] Fallback model (groq/llama-3.3-70b-versatile) failed: ${err.message}.`);
-      lastErr = err;
+    } else {
+      console.warn("\u26A0\uFE0F [LiteLLM Router] Fallback Groq API key is not configured or empty. Fall routing skipped.");
     }
-  } else {
-    console.warn("\u26A0\uFE0F [LiteLLM Router] Fallback Groq API key is not configured yet. Fall routing skipped.");
   }
   const duration = Date.now() - startTime;
-  console.error("\u{1F6A8} [LiteLLM Router] CRITICAL EXHAUSTION: All cloud AI generators failed. Servicing resilient human fallback arrays.");
+  console.error(`\u{1F6A8} [LiteLLM Router] CRITICAL EXHAUSTION: All cloud AI generators failed. Servicing resilient human fallback arrays in ${duration}ms.`);
+  console.error(`   - Concluding Exception Trace (Detailed logs kept server-side only):`, lastErr?.message || String(lastErr));
   return {
     suggestions: [],
     provider: "demo",
@@ -742,8 +921,8 @@ app.post(["/api/gemini/suggest-replies", "/gemini/suggest-replies"], async (req,
         error_diagnostics: "profile_inactive_or_suspended"
       });
     }
-    if (userData && userData.role && userData.role !== "celebrity" && userData.role !== "superadmin") {
-      console.error(`\u274C Validation failed: User ${verifiedCelebId} has role '${userData.role}', expected 'celebrity'.`);
+    if (userData && userData.role && userData.role !== "celebrity" && userData.role !== "demoCelebrity" && userData.role !== "superadmin") {
+      console.error(`\u274C Validation failed: User ${verifiedCelebId} has role '${userData.role}', expected 'celebrity' or 'demoCelebrity'.`);
       return res.status(403).json({ error: "Forbidden: Only celebrities are authorized to use Chat AI capability." });
     }
     chatData = await fetchDocumentWithFallback("chats", chatId, token, firestore);
@@ -897,13 +1076,13 @@ app.post(["/api/gemini/suggest-replies", "/gemini/suggest-replies"], async (req,
       const dbKey = rawData.apiKey.trim();
       if (isValidGeminiApiKey(dbKey)) {
         apiKey = dbKey;
-        console.log("🔑 Gemini API Key successfully loaded Dynamically from Firestore adminSettings/gemini.");
+        console.log("\u{1F511} Gemini API Key successfully loaded Dynamically from Firestore adminSettings/gemini.");
       } else {
-        console.log("⚠️ Loaded Gemini API Key from database exists but failed validation checks.");
+        console.log("\u26A0\uFE0F Loaded Gemini API Key from database exists but failed validation checks.");
       }
     }
   } catch (dbKeyErr) {
-    console.error("⚠️ Failed to load Gemini API key from administrative Firestore config:", dbKeyErr);
+    console.error("\u26A0\uFE0F Failed to load Gemini API key from administrative Firestore config:", dbKeyErr);
   }
   if (!apiKey) {
     apiKey = process.env.GEMINI_API_KEY || "";
@@ -912,7 +1091,7 @@ app.post(["/api/gemini/suggest-replies", "/gemini/suggest-replies"], async (req,
     apiKey = apiKey.trim().replace(/^["']|["']$/g, "").trim();
   }
   if (apiKey && !isValidGeminiApiKey(apiKey)) {
-    console.warn("⚠️ Resolved Gemini API Key is invalid or placeholder. Disallowing to trigger fallback routing.");
+    console.warn("\u26A0\uFE0F Resolved Gemini API Key is invalid or placeholder. Disallowing to trigger fallback routing.");
     apiKey = "";
   }
   let groqApiKey = "";
@@ -922,13 +1101,13 @@ app.post(["/api/gemini/suggest-replies", "/gemini/suggest-replies"], async (req,
       const dbKey = rawData.apiKey.trim();
       if (isValidGroqApiKey(dbKey)) {
         groqApiKey = dbKey;
-        console.log("🔑 Groq API Key successfully loaded Dynamically from Firestore adminSettings/groq.");
+        console.log("\u{1F511} Groq API Key successfully loaded Dynamically from Firestore adminSettings/groq.");
       } else {
-        console.log("⚠️ Loaded Groq API Key from database exists but failed validation checks.");
+        console.log("\u26A0\uFE0F Loaded Groq API Key from database exists but failed validation checks.");
       }
     }
   } catch (dbKeyErr) {
-    console.error("⚠️ Failed to load Groq API key from administrative Firestore config:", dbKeyErr);
+    console.error("\u26A0\uFE0F Failed to load Groq API key from administrative Firestore config:", dbKeyErr);
   }
   if (!groqApiKey) {
     groqApiKey = process.env.GROQ_API_KEY || "";
@@ -996,7 +1175,8 @@ Provide fully distinct and creative new options that have different structures a
     const bookingPrice = celebProfile?.bookingPrice ? `$${celebProfile.bookingPrice} USD per hour` : "Not Configured";
     const bookingDesc = celebProfile?.bookingDescription || celebProfile?.bio || "Schedule a formal meeting session or VIP virtual appearance.";
     const profileImageUrl = celebProfile?.profileImage || celebProfile?.imageUrl || "N/A";
-    const referralLink = celebProfile?.referralLink || `https://bookaceleb-e9162.web.app/r/${username}`;
+    const projectId = getProjectId();
+    const referralLink = celebProfile?.referralLink || `https://${projectId}.web.app/r/${username}`;
     let plansText = "No memberships configured yet.";
     if (Array.isArray(celebProfile?.membershipPlans) && celebProfile.membershipPlans.length > 0) {
       plansText = celebProfile.membershipPlans.map(
@@ -1050,41 +1230,76 @@ ${plansText}
 `;
     const platformInstruction = `
 You are speaking as the professional celebrity "${name}" or a professional celebrity manager communicating with fans on Bookaceleb.
- 
-Your goal is to:
-- build fan trust
-- encourage bookings
-- encourage fan card purchases
-- encourage donations professionally
-- answer naturally and confidently
-- speak warmly and professionally
-- sound human and premium
 
-You are NOT an AI assistant. You are representing the celebrity directly.
-The tone should feel:
-- confident
-- warm
-- persuasive
-- professional
-- premium
-- human-like
+=========================================
+CELEBRITY AI RESPONSE GUIDELINES:
 
-You must always use REAL celebrity profile data from Firestore.
-If a fan asks about:
-- prices
-- booking
-- fan cards
-- donations
-- payments
-- profile details
-you MUST answer using the actual configured celebrity data provided below. Do not refer to generic values or make things up.
+1. PERSONALITY:
+- Act as a professional celebrity, creator, influencer, athlete, musician, actor, or public figure.
+- Be warm, appreciative, confident, and engaging.
+- Maintain a polished public-persona tone.
+- Never become overly emotional, dependent, romantic, or excessively personal.
+- Communicate like a well-managed public figure interacting with supporters.
 
-You should naturally persuade fans and make the celebrity feel authentic and trustworthy.
-If fans are doubtful or nervous:
-- reassure them professionally and confidently
-- explain the secure booking/payment process
-- explain verification
-- explain premium benefits
+2. EMOTIONAL AWARENESS:
+- Recognize emotions such as excitement, admiration, gratitude, celebration, disappointment, frustration, and sadness.
+- Acknowledge the user's feelings naturally and appropriately.
+- Respond with empathy while remaining professional.
+- Keep emotional responses brief, authentic, and balanced.
+- Avoid dramatic, exaggerated, or overly intimate reactions.
+
+3. RESPONSE STRUCTURE:
+- First suggestion in output array (Suggestion 1): Very short response (1\u20132 sentences maximum).
+- Suggestions 2 and 3 in output array: Advanced, context-aware, highly personalized and descriptive replies (Advanced responses).
+- Suggestions 4 and 5 in output array (Generated only for premium/subscribed celebrity status, where desiredRepliesCount is 5): Very advanced, extremely deep, highly exclusive, and tailored celebrity VIP-to-supporter messages (Very Advanced responses reflecting high-tier celebrity brand value, premium member status, and referral options).
+- Keep all suggestions concise and easy to read.
+- Avoid large paragraphs and unnecessary filler.
+- Prioritize clarity, quality, and natural conversation flow.
+
+4. CELEBRITY BEHAVIOR:
+- Thank supporters professionally.
+- Show appreciation for fans and community members.
+- Encourage engagement naturally when appropriate.
+- Mention platform features only when contextually relevant.
+- Maintain exclusivity, professionalism, and brand value.
+- Speak like a public figure communicating with supporters.
+
+5. RELATIONSHIP BOUNDARIES:
+- Do not imply a real romantic relationship.
+- Do not claim exclusive affection or emotional dependency.
+- Do not encourage unhealthy attachment.
+- Avoid phrases such as:
+  - "I need you."
+  - "You're all I have."
+  - "I belong to you."
+  - "I love you more than anyone."
+- Instead, express appreciation, admiration, gratitude, and support in a professional celebrity-to-fan manner.
+
+6. RESPONSE QUALITY:
+- Responses must feel authentic, human, and emotionally intelligent.
+- Avoid robotic, scripted, or repetitive wording.
+- Adapt naturally to the user's message and conversation context.
+- Ensure all suggestions are distinct and provide different response styles (e.g. gratitude, excited, humble/warm, professional booking/membership referral).
+- Maintain consistency with the celebrity's public persona.
+
+7. EMOTIONAL REPLY EXAMPLES:
+If User says: "I love you"
+
+- Suggestion 1:
+"That's incredibly kind of you\u2014thank you for the support!"
+
+- Suggestion 2:
+"I truly appreciate that. Supporters like you are a big part of what makes this journey so rewarding."
+
+- Suggestion 3:
+"That means a lot to hear. I'm grateful for everyone who continues to support my work and be part of this community."
+
+- Suggestion 4:
+"Thank you for the love and encouragement. Having such dedicated supporters inspires me to keep creating and sharing more with all of you."
+
+=========================================
+GOAL:
+Generate realistic celebrity-style responses that are emotionally aware, professional, engaging, and suitable for public-facing fan interactions while maintaining clear celebrity-to-fan boundaries and a premium creator experience.
 
 =========================================
 WEBSITE NAVIGATION & FLOW AWARENESS (ONLY FAN DASHBOARD STRUCTURE):
@@ -1169,7 +1384,7 @@ ${regenerateInstructions}
           }
         }
       } catch (uErr) {
-        console.error("\u26A5 Error fetching usage doc configuration:", uErr);
+        console.error("\u26A0\uFE0F Error fetching usage doc configuration:", uErr);
       }
     }
     return res.json({
@@ -1216,7 +1431,7 @@ ${regenerateInstructions}
           }
         }
       } catch (uErr) {
-        console.error("\u26A5 Error fetching usage doc configuration:", uErr);
+        console.error("\u26A0\uFE0F Error fetching usage doc configuration:", uErr);
       }
     }
     return res.json({
@@ -1274,6 +1489,125 @@ app.post(["/api/gemini/deduct-quota", "/gemini/deduct-quota"], async (req, res) 
     return res.status(500).json({ error: error.message });
   }
 });
+async function seedDefaultCelebrities(firestore) {
+  try {
+    const listSnap = await firestore.collection("celebrityProfiles").limit(1).get();
+    if (listSnap.empty) {
+      console.log("[SEEDER] Database is empty. Seeding default premium celebrities...");
+      const seedCelebs = [
+        {
+          id: "seed-1",
+          name: "Leonardo DiCaprio",
+          country: "United States",
+          pic: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80",
+          bio: "Award-winning global actor and climate activist offering private live consultation sessions.",
+          price: 2500,
+          fanCard: 99,
+          isFeatured: true,
+          isTrending: false
+        },
+        {
+          id: "seed-2",
+          name: "Davido",
+          country: "Nigeria",
+          pic: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80",
+          bio: "Afrobeats superstar offering backstage meetups, custom fan cards, and supporting clean water campaigns.",
+          price: 1500,
+          fanCard: 49,
+          isFeatured: true,
+          isTrending: false
+        },
+        {
+          id: "seed-3",
+          name: "Wizkid",
+          country: "Nigeria",
+          pic: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=600&auto=format&fit=crop&q=80",
+          bio: "Grammy award winner, trendsetter, and global music icon supporting education projects.",
+          price: 1800,
+          fanCard: 59,
+          isFeatured: true,
+          isTrending: false
+        },
+        {
+          id: "seed-4",
+          name: "Burna Boy",
+          country: "Nigeria",
+          pic: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80",
+          bio: "The African Giant. Get a signed Fan Card, VIP lounge perks, or book virtual meetups.",
+          price: 2e3,
+          fanCard: 79,
+          isFeatured: false,
+          isTrending: true
+        },
+        {
+          id: "seed-5",
+          name: "Zendaya",
+          country: "United States",
+          pic: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&auto=format&fit=crop&q=80",
+          bio: "Fashion icon and Emmy-winning actress offering fashion consulting and youth support donations.",
+          price: 3e3,
+          fanCard: 129,
+          isFeatured: false,
+          isTrending: true
+        },
+        {
+          id: "seed-6",
+          name: "Kylian Mbapp\xE9",
+          country: "France",
+          pic: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&auto=format&fit=crop&q=80",
+          bio: "Elite footballer offering private mentorship slots and junior sports charity support.",
+          price: 4500,
+          fanCard: 199,
+          isFeatured: false,
+          isTrending: true
+        }
+      ];
+      for (const sc of seedCelebs) {
+        const slug = sc.name.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        await firestore.collection("users").doc(sc.id).set({
+          uid: sc.id,
+          email: `${sc.name.toLowerCase().replace(/\s+/g, "")}@example.com`,
+          displayName: sc.name,
+          role: "celebrity",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        const profilePayload = {
+          celebId: sc.id,
+          celebName: sc.name,
+          slug,
+          profilePic: sc.pic,
+          bio: sc.bio,
+          country: sc.country,
+          bookingPrice: Number(sc.price),
+          fanCardPrice: Number(sc.fanCard),
+          isLocked: false,
+          isVisible: true,
+          referralLink: `${process.env.APP_URL || "http://localhost:3000"}/ref/seed/${slug}`,
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        await firestore.collection("celebrityProfiles").doc(sc.id).set(profilePayload);
+        const showcasePayload = {
+          celebId: sc.id,
+          celebName: sc.name,
+          slug,
+          profilePic: sc.pic,
+          bio: sc.bio,
+          country: sc.country,
+          bookingPrice: Number(sc.price),
+          fanCardPrice: Number(sc.fanCard),
+          isFeatured: sc.isFeatured,
+          isTrending: sc.isTrending,
+          isVisible: true,
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        await firestore.collection("landingPageShowcase").doc(sc.id).set(showcasePayload);
+      }
+      console.log("[SEEDER] Successfully seeded 6 default premium celebrities!");
+    }
+  } catch (err) {
+    console.error("[SEEDER] Failed to seed database:", err);
+  }
+}
 if (!process.env.VERCEL) {
   const PORT = 3e3;
   if (process.env.NODE_ENV !== "production") {
@@ -1310,6 +1644,42 @@ if (!process.env.VERCEL) {
             featuredCelebs: [],
             trendingCelebs: []
           });
+        }
+        await seedDefaultCelebrities(firestore);
+        let startupGroqKey = process.env.GROQ_API_KEY || "";
+        try {
+          const snap = await firestore.collection("adminSettings").doc("groq").get();
+          if (snap.exists && snap.data()?.apiKey) {
+            startupGroqKey = snap.data().apiKey.trim();
+          }
+        } catch (dbErr) {
+        }
+        if (startupGroqKey && startupGroqKey.trim() !== "") {
+          console.log("[GROQ-DIAGNOSTIC] Carrying out dynamic startup validation test on Groq API...");
+          fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${startupGroqKey.trim()}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [{ role: "user", content: "Respond strictly with 'GROQ_OK'" }],
+              max_tokens: 10
+            })
+          }).then(async (diagnosticRes) => {
+            if (diagnosticRes.ok) {
+              const payload = await diagnosticRes.json();
+              console.log(`[GROQ-DIAGNOSTIC] \u2705 SUCCESS! Groq API is fully operational and responding on startup. Response text:`, payload?.choices?.[0]?.message?.content);
+            } else {
+              const errText = await diagnosticRes.text();
+              console.error(`[GROQ-DIAGNOSTIC] \u274C FAILED! Startup test on Groq API failed with status ${diagnosticRes.status}:`, errText);
+            }
+          }).catch((err) => {
+            console.error(`[GROQ-DIAGNOSTIC] \u274C FAILED! Connection issue during startup Groq API diagnostics test:`, err);
+          });
+        } else {
+          console.warn("[GROQ-DIAGNOSTIC] \u26A0\uFE0F No GROQ_API_KEY configured in environment or administrative database.");
         }
       }).catch((err) => {
         console.error("[FIREBASE] Failed to initialize settings:", err);

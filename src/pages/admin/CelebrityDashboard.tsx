@@ -1948,11 +1948,11 @@ export const CelebrityDashboard = () => {
                   setAiError(null);
                   setAiStep('suggestions');
 
-                  // Create AbortController to implement a strict 8-second request timeout failsafe
+                  // Create AbortController to implement a strict 25-second request timeout failsafe
                   const controller = new AbortController();
                   const timeoutId = setTimeout(() => {
                     controller.abort();
-                  }, 8000);
+                  }, 25000);
 
                   try {
                     const token = await user.getIdToken();

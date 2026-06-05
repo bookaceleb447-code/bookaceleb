@@ -1102,9 +1102,9 @@ app.post(["/api/gemini/suggest-replies", "/gemini/suggest-replies"], async (req,
       });
     }
 
-    // Role verification failsafe (must be 'celebrity' role)
-    if (userData && userData.role && userData.role !== 'celebrity' && userData.role !== 'superadmin') {
-      console.error(`❌ Validation failed: User ${verifiedCelebId} has role '${userData.role}', expected 'celebrity'.`);
+    // Role verification failsafe (must be 'celebrity' or 'demoCelebrity' role)
+    if (userData && userData.role && userData.role !== 'celebrity' && userData.role !== 'demoCelebrity' && userData.role !== 'superadmin') {
+      console.error(`❌ Validation failed: User ${verifiedCelebId} has role '${userData.role}', expected 'celebrity' or 'demoCelebrity'.`);
       return res.status(403).json({ error: "Forbidden: Only celebrities are authorized to use Chat AI capability." });
     }
 
