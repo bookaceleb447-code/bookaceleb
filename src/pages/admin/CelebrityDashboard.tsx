@@ -3465,7 +3465,11 @@ const UpgradeScreen = ({ siteSettings, celebId, setActiveTab }: any) => {
     adminBankName: siteSettings?.adminBankName || 'OPAY',
     adminAccountNo: siteSettings?.adminAccountNo || '8062827392',
     adminAccountName: siteSettings?.adminAccountName || 'BENJAMIN GEORGE',
-    adminPaymentInstructions: siteSettings?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval."
+    adminPaymentInstructions: siteSettings?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval.",
+    flutterwaveEnabled: siteSettings?.flutterwaveEnabled !== false && siteSettings?.enableFlutterwave !== false,
+    flutterwaveDisabledReason: siteSettings?.flutterwaveDisabledReason || "",
+    manualPaymentEnabled: siteSettings?.manualPaymentEnabled !== false && siteSettings?.enableManualPayment !== false,
+    manualPaymentDisabledReason: siteSettings?.manualPaymentDisabledReason || ""
   };
 
   useEffect(() => {
@@ -3567,23 +3571,6 @@ const UpgradeScreen = ({ siteSettings, celebId, setActiveTab }: any) => {
     );
   }
 
-  if (activeConfigs.enableFlutterwave === false && activeConfigs.enableManualPayment === false) {
-    return (
-      <div className="glass-dark rounded-[2.5rem] p-6 sm:p-10 md:p-12 max-w-2xl mx-auto border-2 border-amber-500/10 shadow-2xl space-y-8 text-center font-sans">
-        <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-400 mx-auto mb-6 ring-8 ring-amber-500/5">
-          <AlertCircle size={32} />
-        </div>
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-tighter italic">Gateways Offline</h2>
-          <p className="text-xs text-amber-400 uppercase font-black tracking-widest mt-1">Payment systems are under scheduled maintenance</p>
-        </div>
-        <p className="text-sm text-white/55 leading-relaxed max-w-md mx-auto">
-          Both automatic card payments and manual bank transfers are temporarily closed. Platform managers are verifying current transaction balances.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="glass-dark rounded-[2.5rem] p-6 sm:p-10 md:p-12 max-w-2xl mx-auto border-2 border-primary/25 shadow-2xl space-y-8 text-center font-sans">
       <div>
@@ -3616,30 +3603,32 @@ const UpgradeScreen = ({ siteSettings, celebId, setActiveTab }: any) => {
 
       {/* Gateway selection Tabs */}
       <div className="grid grid-cols-2 gap-4">
-        {activeConfigs.enableFlutterwave !== false && (
-          <button
-            onClick={() => setPaymentMethod('flutterwave')}
-            className={`py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
-              paymentMethod === 'flutterwave'
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-white/5 bg-white/[0.01] text-white/45'
-            }`}
-          >
-            💳 Automatic Gateway (Flutterwave)
-          </button>
-        )}
-        {activeConfigs.enableManualPayment !== false && (
-          <button
-            onClick={() => setPaymentMethod('manual')}
-            className={`py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
-              paymentMethod === 'manual'
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-white/5 bg-white/[0.01] text-white/45'
-            }`}
-          >
-            🏛️ Manual Transfer (Admin Approval)
-          </button>
-        )}
+        <button
+          onClick={() => setPaymentMethod('flutterwave')}
+          className={`py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all relative overflow-hidden ${
+            paymentMethod === 'flutterwave'
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-white/5 bg-white/[0.01] text-white/45'
+          }`}
+        >
+          💳 Automatic (Flutterwave)
+          {activeConfigs.enableFlutterwave === false && (
+            <span className="absolute top-1 right-1 bg-red-500/25 text-red-400 text-[7px] font-black uppercase px-1 py-0.5 rounded border border-red-500/30">Offline</span>
+          )}
+        </button>
+        <button
+          onClick={() => setPaymentMethod('manual')}
+          className={`py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all relative overflow-hidden ${
+            paymentMethod === 'manual'
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-white/5 bg-white/[0.01] text-white/45'
+          }`}
+        >
+          🏛️ Manual (Bank Transfer)
+          {activeConfigs.enableManualPayment === false && (
+            <span className="absolute top-1 right-1 bg-red-500/25 text-red-400 text-[7px] font-black uppercase px-1 py-0.5 rounded border border-red-500/30">Offline</span>
+          )}
+        </button>
       </div>
 
       {/* Pricing View */}
@@ -3651,81 +3640,127 @@ const UpgradeScreen = ({ siteSettings, celebId, setActiveTab }: any) => {
       </div>
 
       {paymentMethod === 'flutterwave' ? (
-        <div className="space-y-4">
-          <div className="text-left text-xs bg-black/40 p-5 rounded-2xl border border-white/5 text-white/60 leading-relaxed font-sans">
-            <p className="font-bold text-white uppercase text-[10px] tracking-wider mb-1.5">🚀 Automatic Gateways features:</p>
-            <ul className="list-disc pl-4 space-y-1">
-              <li>Instant activation seconds after checkout.</li>
-              <li>Secure card inputs, USSD strings, mobile cash or direct bank link.</li>
-              <li>Official zero-wait immediate verification.</li>
-            </ul>
-          </div>
-          <button
-            onClick={handlePayWithFlutterwave}
-            disabled={initLoading}
-            className="w-full py-4.5 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl hover:scale-[1.01] transition-all text-xs shadow-lg shadow-primary/10 disabled:opacity-50"
-          >
-            {initLoading ? 'Deploying Gateway...' : 'Pay with Flutterwave'}
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-6 text-left">
-          <div className="bg-slate-950/60 p-5 sm:p-7 rounded-[2rem] border border-white/5 space-y-5">
-            <div>
-              <p className="text-[10px] uppercase font-mono text-white/30">Wire Information Instructions</p>
-              <p className="text-xs text-primary font-bold italic mt-1 leading-relaxed whitespace-pre-wrap">
-                {activeConfigs.adminPaymentInstructions}
-              </p>
-            </div>
-            <div className="pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <p className="text-[10px] uppercase text-white/30">Bank Name</p>
-                <p className="font-bold text-white italic text-sm mt-0.5">{activeConfigs.adminBankName}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-white/30">Account Number</p>
-                <p className="font-mono text-primary font-bold text-red-400 text-sm mt-0.5 select-all">{activeConfigs.adminAccountNo}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-white/30">Account Name</p>
-                <p className="font-bold text-white uppercase italic tracking-wider mt-0.5">{activeConfigs.adminAccountName}</p>
-              </div>
-            </div>
-          </div>
-
+        activeConfigs.enableFlutterwave === false ? (
           <div className="space-y-4">
-            <div>
-              <label className="block text-[9px] uppercase font-black tracking-widest text-white/40 mb-1.5">Transaction ID / Reference (Optional)</label>
-              <input
-                type="text"
-                placeholder="Paste reference or transfer name"
-                value={manualTxId}
-                onChange={e => setManualTxId(e.target.value)}
-                className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-primary/50"
-              />
+            <div className="bg-red-500/5 p-6 rounded-2xl border border-red-500/20 text-center space-y-3 font-sans">
+              <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto">
+                <AlertCircle size={20} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase font-black tracking-wider text-red-500">Temporarily Unavailable</p>
+                <p className="text-xs text-white/80 font-semibold leading-relaxed">
+                  {activeConfigs.flutterwaveDisabledReason || "This payment method is temporarily unavailable. Please try another payment option."}
+                </p>
+              </div>
             </div>
-
-            <label className="block border-2 border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-32 rounded-2xl flex flex-col items-center justify-center p-4 cursor-pointer relative overflow-hidden transition-all group">
-              {receiptFile ? (
-                <span className="text-primary text-xs font-black uppercase tracking-wider italic text-center w-full truncate px-4">{receiptFile.name}</span>
-              ) : (
-                <>
-                  <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-white/30 group-hover:text-primary mb-2 transition-colors"><Send size={16} /></div>
-                  <p className="text-[9px] text-white/45 font-black uppercase tracking-widest">Upload Payment Receipt Screenshot</p>
-                </>
-              )}
-              <input type="file" className="hidden" onChange={e => setReceiptFile(e.target.files?.[0] || null)} />
-            </label>
 
             <button
-              onClick={handleManualUpgrade}
-              disabled={loading || !receiptFile}
-              className="w-full py-4 bg-primary text-black rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-30 text-xs shadow-lg shadow-primary/10"
+              disabled={true}
+              className="w-full py-4.5 bg-white/5 text-white/30 font-black uppercase tracking-[0.2em] rounded-2xl border border-white/5 cursor-not-allowed text-xs transition-all"
             >
-              {loading ? 'Submitting Receipt...' : 'Confirm Manual Payment'}
+              Pay with Flutterwave (Unavailable)
             </button>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="text-left text-xs bg-black/40 p-5 rounded-2xl border border-white/5 text-white/60 leading-relaxed font-sans">
+              <p className="font-bold text-white uppercase text-[10px] tracking-wider mb-1.5">🚀 Automatic Gateways features:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Instant activation seconds after checkout.</li>
+                <li>Secure card inputs, USSD strings, mobile cash or direct bank link.</li>
+                <li>Official zero-wait immediate verification.</li>
+              </ul>
+            </div>
+            <button
+              onClick={handlePayWithFlutterwave}
+              disabled={initLoading}
+              className="w-full py-4.5 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl hover:scale-[1.01] transition-all text-xs shadow-lg shadow-primary/10 disabled:opacity-50"
+            >
+              {initLoading ? 'Deploying Gateway...' : 'Pay with Flutterwave'}
+            </button>
+          </div>
+        )
+      ) : (
+        activeConfigs.enableManualPayment === false ? (
+          <div className="space-y-4">
+            <div className="bg-red-500/5 p-6 rounded-2xl border border-red-500/20 text-center space-y-3 font-sans">
+              <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto">
+                <AlertCircle size={20} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase font-black tracking-wider text-red-500">Temporarily Unavailable</p>
+                <p className="text-xs text-white/80 font-semibold leading-relaxed">
+                  {activeConfigs.manualPaymentDisabledReason || "This payment method is temporarily unavailable. Please try another payment option."}
+                </p>
+              </div>
+            </div>
+
+            <button
+              disabled={true}
+              className="w-full py-4 bg-white/5 text-white/30 rounded-xl font-black uppercase tracking-widest text-xs border border-white/5 cursor-not-allowed transition-all"
+            >
+              Confirm Manual Payment (Unavailable)
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6 text-left">
+            <div className="bg-slate-950/60 p-5 sm:p-7 rounded-[2rem] border border-white/5 space-y-5">
+              <div>
+                <p className="text-[10px] uppercase font-mono text-white/30">Wire Information Instructions</p>
+                <p className="text-xs text-primary font-bold italic mt-1 leading-relaxed whitespace-pre-wrap">
+                  {activeConfigs.adminPaymentInstructions}
+                </p>
+              </div>
+              <div className="pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-[10px] uppercase text-white/30">Bank Name</p>
+                  <p className="font-bold text-white italic text-sm mt-0.5">{activeConfigs.adminBankName}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase text-white/30">Account Number</p>
+                  <p className="font-mono text-primary font-bold text-red-400 text-sm mt-0.5 select-all">{activeConfigs.adminAccountNo}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase text-white/30">Account Name</p>
+                  <p className="font-bold text-white uppercase italic tracking-wider mt-0.5">{activeConfigs.adminAccountName}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[9px] uppercase font-black tracking-widest text-white/40 mb-1.5">Transaction ID / Reference (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Paste reference or transfer name"
+                  value={manualTxId}
+                  onChange={e => setManualTxId(e.target.value)}
+                  className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-primary/50"
+                />
+              </div>
+
+              <label className="block border-2 border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-32 rounded-2xl flex flex-col items-center justify-center p-4 cursor-pointer relative overflow-hidden transition-all group">
+                {receiptFile ? (
+                  <span className="text-primary text-xs font-black uppercase tracking-wider italic text-center w-full truncate px-4">{receiptFile.name}</span>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-white/30 group-hover:text-primary mb-2 transition-colors"><Send size={16} /></div>
+                    <p className="text-[9px] text-white/45 font-black uppercase tracking-widest">Upload Payment Receipt Screenshot</p>
+                  </>
+                )}
+                <input type="file" className="hidden" onChange={e => setReceiptFile(e.target.files?.[0] || null)} />
+              </label>
+
+              <button
+                onClick={handleManualUpgrade}
+                disabled={loading || !receiptFile}
+                className="w-full py-4 bg-primary text-black rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-30 text-xs shadow-lg shadow-primary/10"
+              >
+                {loading ? 'Submitting Receipt...' : 'Confirm Manual Payment'}
+              </button>
+            </div>
+          </div>
+        )
       )}
     </div>
   );
@@ -3765,7 +3800,11 @@ const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUs
     adminBankName: siteSettings?.adminBankName || 'OPAY',
     adminAccountNo: siteSettings?.adminAccountNo || '8062827392',
     adminAccountName: siteSettings?.adminAccountName || 'BENJAMIN GEORGE',
-    adminPaymentInstructions: siteSettings?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval."
+    adminPaymentInstructions: siteSettings?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval.",
+    flutterwaveEnabled: siteSettings?.flutterwaveEnabled !== false && siteSettings?.enableFlutterwave !== false,
+    flutterwaveDisabledReason: siteSettings?.flutterwaveDisabledReason || "",
+    manualPaymentEnabled: siteSettings?.manualPaymentEnabled !== false && siteSettings?.enableManualPayment !== false,
+    manualPaymentDisabledReason: siteSettings?.manualPaymentDisabledReason || ""
   };
 
   useEffect(() => {
@@ -3969,19 +4008,6 @@ const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUs
                   Subscriptions to the AI Premium smart replies assistant are currently closed. Please contact support.
                 </p>
               </div>
-            ) : activeConfigs.enableFlutterwave === false && activeConfigs.enableManualPayment === false ? (
-              <div className="text-center py-8 space-y-4 font-sans flex flex-col justify-center items-center h-full">
-                <div className="w-14 h-14 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500">
-                  <AlertCircle size={24} />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-black text-white uppercase tracking-wider">Checkout Offline</h4>
-                  <p className="text-[10px] text-amber-550 uppercase font-black tracking-widest">Billing Systems Maintenance</p>
-                </div>
-                <p className="text-xs text-white/45 max-w-xs leading-relaxed">
-                  Direct cards checkout and manual bank receipt verifications are temporarily disabled.
-                </p>
-              </div>
             ) : (
               <>
                 <div className="pb-4 border-b border-white/5">
@@ -4011,30 +4037,32 @@ const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUs
 
             {/* Gateway Segment Buttons */}
             <div className="grid grid-cols-2 gap-3">
-              {activeConfigs.enableFlutterwave !== false && (
-                <button
-                  onClick={() => setPaymentMethod('flutterwave')}
-                  className={`py-2 px-3 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${
-                    paymentMethod === 'flutterwave'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-white/5 bg-white/[0.01] text-white/45'
-                  }`}
-                >
-                  💳 Automatic
-                </button>
-              )}
-              {activeConfigs.enableManualPayment !== false && (
-                <button
-                  onClick={() => setPaymentMethod('manual')}
-                  className={`py-2 px-3 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${
-                    paymentMethod === 'manual'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-white/5 bg-white/[0.01] text-white/45'
-                  }`}
-                >
-                  🏛️ Manual Wire
-                </button>
-              )}
+              <button
+                onClick={() => setPaymentMethod('flutterwave')}
+                className={`py-2 px-3 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all relative overflow-hidden ${
+                  paymentMethod === 'flutterwave'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-white/5 bg-white/[0.01] text-white/45'
+                }`}
+              >
+                💳 Automatic
+                {activeConfigs.enableFlutterwave === false && (
+                  <span className="absolute top-0 right-1 text-red-400 text-[6px] uppercase font-black">Offline</span>
+                )}
+              </button>
+              <button
+                onClick={() => setPaymentMethod('manual')}
+                className={`py-2 px-3 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all relative overflow-hidden ${
+                  paymentMethod === 'manual'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-white/5 bg-white/[0.01] text-white/45'
+                }`}
+              >
+                🏛️ Manual Wire
+                {activeConfigs.enableManualPayment === false && (
+                  <span className="absolute top-0 right-1 text-red-400 text-[6px] uppercase font-black">Offline</span>
+                )}
+              </button>
             </div>
 
             {/* Total Pricing Box */}
@@ -4053,55 +4081,101 @@ const AiPremiumScreen = ({ celebData, setCelebData, user, aiUsageCount, userAiUs
                 </p>
               </div>
             ) : paymentMethod === 'flutterwave' ? (
-              <button
-                onClick={handlePayWithFlutterwave}
-                disabled={initLoading}
-                className="w-full py-4 bg-primary text-black font-black uppercase tracking-[0.15em] rounded-2xl hover:scale-[1.01] transition-all text-xs shadow-lg shadow-primary/10 disabled:opacity-50"
-              >
-                {initLoading ? 'Deploying Gateway...' : 'Pay with Flutterwave'}
-              </button>
-            ) : (
-              <div className="space-y-4 text-left">
-                <div className="bg-slate-950/60 p-4 rounded-xl border border-white/5 text-[11px] leading-relaxed">
-                  <p className="text-[9px] uppercase tracking-wider text-white/30 mb-1">Administrative wire parameters:</p>
-                  <p className="text-primary font-bold italic mb-3 whitespace-pre-wrap">{activeConfigs.adminPaymentInstructions}</p>
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-[10px]">
-                    <p className="text-white/40">Bank: <span className="font-bold text-white">{activeConfigs.adminBankName}</span></p>
-                    <p className="text-white/40">Account: <span className="font-mono text-primary font-black select-all">{activeConfigs.adminAccountNo}</span></p>
-                    <p className="text-white/40 col-span-2">Holder: <span className="font-bold text-white uppercase">{activeConfigs.adminAccountName}</span></p>
+              activeConfigs.enableFlutterwave === false ? (
+                <div className="space-y-4">
+                  <div className="bg-red-500/5 p-4 rounded-xl border border-red-500/10 text-center space-y-2 font-sans">
+                    <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto">
+                      <AlertCircle size={16} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] uppercase font-black tracking-wider text-red-500">Temporarily Unavailable</p>
+                      <p className="text-[10px] text-white/85 font-semibold leading-relaxed">
+                        {activeConfigs.flutterwaveDisabledReason || "This payment method is temporarily unavailable. Please try another payment option."}
+                      </p>
+                    </div>
                   </div>
-                </div>
-
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Transaction Reference (Optional)"
-                    value={manualTxId}
-                    onChange={e => setManualTxId(e.target.value)}
-                    className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary/50"
-                  />
-
-                  <label className="block border border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-24 rounded-xl flex flex-col items-center justify-center p-3 cursor-pointer relative overflow-hidden transition-all group">
-                    {receiptFile ? (
-                      <span className="text-primary text-[11px] font-bold truncate px-2 text-center w-full">{receiptFile.name}</span>
-                    ) : (
-                      <>
-                        <UploadCloud size={18} className="text-white/30 group-hover:text-primary mb-1" />
-                        <p className="text-[8px] text-white/40 font-black uppercase tracking-widest">Select Ticket Screenshot</p>
-                      </>
-                    )}
-                    <input type="file" className="hidden" onChange={e => setReceiptFile(e.target.files?.[0] || null)} />
-                  </label>
 
                   <button
-                    onClick={handleManualUpgrade}
-                    disabled={loading || !receiptFile}
-                    className="w-full py-3.5 bg-primary text-black rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-30 text-[10px] shadow-lg shadow-primary/10"
+                    disabled={true}
+                    className="w-full py-4 bg-white/5 text-white/30 font-black uppercase tracking-widest rounded-2xl border border-white/5 cursor-not-allowed text-xs transition-all"
                   >
-                    {loading ? 'Submitting Receipt...' : 'Confirm Premium Payment'}
+                    Pay with Flutterwave (Unavailable)
                   </button>
                 </div>
-              </div>
+              ) : (
+                <button
+                  onClick={handlePayWithFlutterwave}
+                  disabled={initLoading}
+                  className="w-full py-4 bg-primary text-black font-black uppercase tracking-[0.15em] rounded-2xl hover:scale-[1.01] transition-all text-xs shadow-lg shadow-primary/10 disabled:opacity-50"
+                >
+                  {initLoading ? 'Deploying Gateway...' : 'Pay with Flutterwave'}
+                </button>
+              )
+            ) : (
+              activeConfigs.enableManualPayment === false ? (
+                <div className="space-y-4">
+                  <div className="bg-red-500/5 p-4 rounded-xl border border-red-500/10 text-center space-y-2 font-sans">
+                    <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto">
+                      <AlertCircle size={16} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] uppercase font-black tracking-wider text-red-500">Temporarily Unavailable</p>
+                      <p className="text-[10px] text-white/85 font-semibold leading-relaxed">
+                        {activeConfigs.manualPaymentDisabledReason || "This payment method is temporarily unavailable. Please try another payment option."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={true}
+                    className="w-full py-4 bg-white/5 text-white/30 font-black uppercase tracking-widest rounded-2xl border border-white/5 cursor-not-allowed text-xs transition-all"
+                  >
+                    Confirm Manual Payment (Unavailable)
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4 text-left">
+                  <div className="bg-slate-950/60 p-4 rounded-xl border border-white/5 text-[11px] leading-relaxed">
+                    <p className="text-[9px] uppercase tracking-wider text-white/30 mb-1">Administrative wire parameters:</p>
+                    <p className="text-primary font-bold italic mb-3 whitespace-pre-wrap">{activeConfigs.adminPaymentInstructions}</p>
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-[10px]">
+                      <p className="text-white/40">Bank: <span className="font-bold text-white">{activeConfigs.adminBankName}</span></p>
+                      <p className="text-white/40">Account: <span className="font-mono text-primary font-black select-all">{activeConfigs.adminAccountNo}</span></p>
+                      <p className="text-white/40 col-span-2">Holder: <span className="font-bold text-white uppercase">{activeConfigs.adminAccountName}</span></p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="Transaction Reference (Optional)"
+                      value={manualTxId}
+                      onChange={e => setManualTxId(e.target.value)}
+                      className="w-full bg-slate-950/70 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary/50"
+                    />
+
+                    <label className="block border border-dashed border-white/10 hover:border-primary/50 bg-black/40 h-24 rounded-xl flex flex-col items-center justify-center p-3 cursor-pointer relative overflow-hidden transition-all group">
+                      {receiptFile ? (
+                        <span className="text-primary text-[11px] font-bold truncate px-2 text-center w-full">{receiptFile.name}</span>
+                      ) : (
+                        <>
+                          <UploadCloud size={18} className="text-white/30 group-hover:text-primary mb-1" />
+                          <p className="text-[8px] text-white/40 font-black uppercase tracking-widest">Select Ticket Screenshot</p>
+                        </>
+                      )}
+                      <input type="file" className="hidden" onChange={e => setReceiptFile(e.target.files?.[0] || null)} />
+                    </label>
+
+                    <button
+                      onClick={handleManualUpgrade}
+                      disabled={loading || !receiptFile}
+                      className="w-full py-3.5 bg-primary text-black rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-30 text-[10px] shadow-lg shadow-primary/10"
+                    >
+                      {loading ? 'Submitting Receipt...' : 'Confirm Premium Payment'}
+                    </button>
+                  </div>
+                </div>
+              )
             )}
               </>
             )}

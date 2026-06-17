@@ -1267,47 +1267,108 @@ export const SuperAdminDashboard = () => {
                                 <div className="max-w-xl bg-slate-900/40 p-4 sm:p-6 md:p-10 border border-white/5 rounded-[2.5rem] space-y-6">
                                     <div className="border-b border-white/5 pb-4">
                                         <h3 className="text-lg font-bold uppercase tracking-wider text-white italic">Upgrade Merchant Processors</h3>
-                                        <p className="text-[10px] text-white/35 font-mono uppercase tracking-widest mt-1">Select active automatic or manual invoice clearing modes</p>
+                                        <p className="text-[10px] text-white/35 font-mono uppercase tracking-widest mt-1">Select active automatic or manual invoice clearing modes and reasons</p>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center bg-black/30 p-5 rounded-xl border border-white/5">
-                                            <div>
-                                                <p className="text-[10px] font-extrabold text-white uppercase tracking-wider">Automatic checkout gateway (Flutterwave)</p>
-                                                <p className="text-[9px] text-white/35 mt-1">Direct credit details, cards, or Bank USSD code payments verification.</p>
+                                    <div className="space-y-6">
+                                        {/* Flutterwave Section */}
+                                        <div className="bg-black/30 p-5 rounded-xl border border-white/5 space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-[10px] font-extrabold text-white uppercase tracking-wider">Automatic checkout gateway (Flutterwave)</p>
+                                                    <p className="text-[9px] text-white/35 mt-1 font-sans">Direct credit details, cards, or Bank USSD code payments verification.</p>
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const currentVal = siteSettings?.flutterwaveEnabled ?? siteSettings?.enableFlutterwave;
+                                                    const newVal = currentVal === false ? true : false;
+                                                    handleSaveGlobalSettings({
+                                                      enableFlutterwave: newVal,
+                                                      flutterwaveEnabled: newVal
+                                                    });
+                                                  }}
+                                                  className={`py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                                    (siteSettings?.flutterwaveEnabled ?? siteSettings?.enableFlutterwave) !== false 
+                                                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                                      : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                                  }`}
+                                                >
+                                                    {(siteSettings?.flutterwaveEnabled ?? siteSettings?.enableFlutterwave) !== false ? 'Active' : 'Suspended'}
+                                                </button>
                                             </div>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleSaveGlobalSettings({
-                                                enableFlutterwave: siteSettings?.enableFlutterwave === false ? true : false
-                                              })}
-                                              className={`py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                                siteSettings?.enableFlutterwave !== false 
-                                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
-                                                  : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
-                                              }`}
-                                            >
-                                                {siteSettings?.enableFlutterwave !== false ? 'Active' : 'Suspended'}
-                                            </button>
+
+                                            <div className="space-y-1.5 pt-2">
+                                                <label className="block text-[8px] uppercase font-black tracking-widest text-white/40">Disable Reason (Flutterwave)</label>
+                                                <input 
+                                                  type="text"
+                                                  value={siteSettings?.flutterwaveDisabledReason || ''}
+                                                  onChange={e => setSiteSettings({...siteSettings, flutterwaveDisabledReason: e.target.value})}
+                                                  placeholder="Enter reason users will see when Flutterwave is unavailable"
+                                                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:border-primary/50 outline-none"
+                                                />
+                                                <p className="text-[7.5px] text-white/25 uppercase font-mono italic">
+                                                  e.g., Payment gateway maintenance in progress. Automatic payments temporarily unavailable. Please use Manual Payment while we perform upgrades.
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <div className="flex justify-between items-center bg-black/30 p-5 rounded-xl border border-white/5">
-                                            <div>
-                                                <p className="text-[10px] font-extrabold text-white uppercase tracking-wider">Manual bank transfers gateway (SuperAdmin Approvals)</p>
-                                                <p className="text-[9px] text-white/35 mt-1">Curators upload a screenshot of bank wires to verify manual ledger credits.</p>
+                                        {/* Manual Section */}
+                                        <div className="bg-black/30 p-5 rounded-xl border border-white/5 space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-[10px] font-extrabold text-white uppercase tracking-wider">Manual bank transfers gateway (SuperAdmin Approvals)</p>
+                                                    <p className="text-[9px] text-white/35 mt-1 font-sans">Curators upload a screenshot of bank wires to verify manual ledger credits.</p>
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const currentVal = siteSettings?.manualPaymentEnabled ?? siteSettings?.enableManualPayment;
+                                                    const newVal = currentVal === false ? true : false;
+                                                    handleSaveGlobalSettings({
+                                                      enableManualPayment: newVal,
+                                                      manualPaymentEnabled: newVal
+                                                    });
+                                                  }}
+                                                  className={`py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                                    (siteSettings?.manualPaymentEnabled ?? siteSettings?.enableManualPayment) !== false 
+                                                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
+                                                      : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                                                  }`}
+                                                >
+                                                    {(siteSettings?.manualPaymentEnabled ?? siteSettings?.enableManualPayment) !== false ? 'Active' : 'Suspended'}
+                                                </button>
                                             </div>
+
+                                            <div className="space-y-1.5 pt-2">
+                                                <label className="block text-[8px] uppercase font-black tracking-widest text-white/40">Disable Reason (Manual Payment)</label>
+                                                <input 
+                                                  type="text"
+                                                  value={siteSettings?.manualPaymentDisabledReason || ''}
+                                                  onChange={e => setSiteSettings({...siteSettings, manualPaymentDisabledReason: e.target.value})}
+                                                  placeholder="Enter reason users will see when Manual Payment is unavailable"
+                                                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:border-primary/50 outline-none"
+                                                />
+                                                <p className="text-[7.5px] text-white/25 uppercase font-mono italic">
+                                                  e.g., Manual payments temporarily paused. Bank account update in progress. Please use Flutterwave for payments.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-2 flex justify-end">
                                             <button
                                               type="button"
                                               onClick={() => handleSaveGlobalSettings({
-                                                enableManualPayment: siteSettings?.enableManualPayment === false ? true : false
+                                                enableFlutterwave: (siteSettings?.flutterwaveEnabled ?? siteSettings?.enableFlutterwave) !== false,
+                                                flutterwaveEnabled: (siteSettings?.flutterwaveEnabled ?? siteSettings?.enableFlutterwave) !== false,
+                                                flutterwaveDisabledReason: siteSettings?.flutterwaveDisabledReason || '',
+                                                enableManualPayment: (siteSettings?.manualPaymentEnabled ?? siteSettings?.enableManualPayment) !== false,
+                                                manualPaymentEnabled: (siteSettings?.manualPaymentEnabled ?? siteSettings?.enableManualPayment) !== false,
+                                                manualPaymentDisabledReason: siteSettings?.manualPaymentDisabledReason || ''
                                               })}
-                                              className={`py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                                siteSettings?.enableManualPayment !== false 
-                                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25' 
-                                                  : 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
-                                              }`}
+                                              className="py-2.5 px-5 bg-primary text-black rounded-lg text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-1.5"
                                             >
-                                                {siteSettings?.enableManualPayment !== false ? 'Active' : 'Suspended'}
+                                                <Save size={12} /> Save Merchant Gateways
                                             </button>
                                         </div>
                                     </div>

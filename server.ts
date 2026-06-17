@@ -713,8 +713,8 @@ app.get("/api/premium/settings", async (req, res) => {
     const data = snap.exists ? snap.data() : {};
     return res.json({
       success: true,
-      enableFlutterwave: data?.enableFlutterwave !== false,
-      enableManualPayment: data?.enableManualPayment !== false,
+      enableFlutterwave: data?.flutterwaveEnabled !== false && data?.enableFlutterwave !== false,
+      enableManualPayment: data?.manualPaymentEnabled !== false && data?.enableManualPayment !== false,
       enableCelebrityUpgrade: data?.enableCelebrityUpgrade !== false,
       enableAiUpgrade: data?.enableAiUpgrade !== false,
       celebrityPlanMonthlyPrice: data?.celebrityPlanMonthlyPrice ?? 499,
@@ -726,7 +726,11 @@ app.get("/api/premium/settings", async (req, res) => {
       adminAccountNo: data?.adminAccountNo || "8062827392",
       adminAccountName: data?.adminAccountName || "BENJAMIN GEORGE",
       adminPaymentInstructions: data?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval.",
-      flutterwavePublicKey: process.env.FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK-6773c01c66a5accbbc89b37b89504967-X"
+      flutterwavePublicKey: process.env.FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK-6773c01c66a5accbbc89b37b89504967-X",
+      flutterwaveEnabled: data?.flutterwaveEnabled !== false && data?.enableFlutterwave !== false,
+      flutterwaveDisabledReason: data?.flutterwaveDisabledReason || "",
+      manualPaymentEnabled: data?.manualPaymentEnabled !== false && data?.enableManualPayment !== false,
+      manualPaymentDisabledReason: data?.manualPaymentDisabledReason || ""
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
