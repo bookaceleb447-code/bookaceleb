@@ -27,6 +27,7 @@ export const ReferralHandler = () => {
           const celebId = celebDoc.id;
           localStorage.setItem('referred_by', celebId);
           localStorage.setItem('referred_celeb_name', cData.celebName);
+          localStorage.setItem('referral_code', slug || '');
           console.log('Referral captured:', celebId);
         }
       } catch (err) {

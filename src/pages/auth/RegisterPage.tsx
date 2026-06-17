@@ -47,7 +47,9 @@ export const RegisterPage = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCredential.user.uid;
 
-      const referredBy = localStorage.getItem('referred_by') || null;
+      const referredBy = localStorage.getItem('referred_by');
+      const assignedCelebrityName = localStorage.getItem('referred_celeb_name');
+      const referralCode = localStorage.getItem('referral_code');
 
       // Create base user record
       await setDoc(doc(db, 'users', uid), {
@@ -55,13 +57,17 @@ export const RegisterPage = () => {
         email: formData.email,
         displayName: formData.name,
         role: 'fan',
-        referredBy,
+        referredBy: referredBy || null,
+        assignedCelebrityId: referredBy || null,
+        assignedCelebrityName: assignedCelebrityName || null,
+        referralCode: referralCode || null,
         createdAt: new Date().toISOString(),
       });
 
       // Clear referral local storage details as user is now successfully registered/linked in Firestore
       localStorage.removeItem('referred_by');
       localStorage.removeItem('referred_celeb_name');
+      localStorage.removeItem('referral_code');
 
       navigate('/dashboard');
 

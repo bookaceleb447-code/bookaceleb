@@ -48,8 +48,6 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      let role = 'user';
-      
       // Special Handling for Fixed SuperAdmin Credentials
       if (email === 'bookaceleb447@gmail.com') {
         const adminDoc = await getDoc(doc(db, 'users', uid));
@@ -63,46 +61,81 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
             createdAt: new Date().toISOString()
           });
         }
-        role = 'superadmin';
-      } else {
-        const userDoc = await getDoc(doc(db, 'users', uid));
-        if (!userDoc.exists()) {
-          throw new Error('User record not found in system directories.');
-        }
-        const data = userDoc.data();
-        if (data?.isBanned) {
-          await auth.signOut();
-          throw new Error('This account has been suspended or banned by the Super Admin.');
-        }
-        role = data.role || 'user';
       }
 
-      // Enforce Role Pathways
-      if (forceRole) {
-        if (role !== forceRole) {
-          throw new Error(`Unauthorized. This login portal is strictly for ${forceRole} accounts only.`);
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (!userDoc.exists()) {
+        await auth.signOut();
+        throw new Error('User record not found in system directories.');
+      }
+      
+      const data = userDoc.data();
+      if (data?.isBanned) {
+        await auth.signOut();
+        throw new Error('This account has been suspended or banned by the Super Admin.');
+      }
+      
+      // Obtain actual role from firestore
+      const role = data.role || 'fan';
+
+      // Enforce Portal Rules (both general/fan portal or explicit forceRole ones)
+      if (!forceRole) {
+        // We are on general Fan Login Page (/login)
+        if (role === 'fan' || role === 'user') {
+          // Allowed login!
+        } else if (role === 'celebrity') {
+          await auth.signOut();
+          throw new Error('Celebrity accounts must login through the Celebrity Portal.');
+        } else if (role === 'superadmin' || role === 'super_admin') {
+          await auth.signOut();
+          throw new Error('Super Admin accounts must login through the Super Admin Portal.');
+        } else {
+          await auth.signOut();
+          throw new Error('Unauthorized. This portal is for Fans only.');
         }
       } else {
-        // Normal general fan login page - strictly block celebrities & superadmins
-        if (role !== 'user') {
-          throw new Error('Unauthorized. This portal is for Fans only. Celebrities must sign in at the Celebrity portal.');
+        // Specific Portal pathway
+        if (forceRole === 'celebrity') {
+          if (role !== 'celebrity') {
+            await auth.signOut();
+            throw new Error('Unauthorized. This login portal is strictly for celebrity accounts only.');
+          }
+        } else if (forceRole === 'superadmin') {
+          if (role !== 'superadmin' && role !== 'super_admin') {
+            await auth.signOut();
+            throw new Error('Unauthorized. This login portal is strictly for superadmin accounts only.');
+          }
+        } else {
+          if (role !== forceRole) {
+            await auth.signOut();
+            throw new Error(`Unauthorized. This login portal is strictly for ${forceRole} accounts only.`);
+          }
         }
       }
 
       // Link referral to user document in Firestore on login, then clear from local storage
       const referredBy = localStorage.getItem('referred_by');
-      if (referredBy && role === 'user') {
+      const assignedCelebrityName = localStorage.getItem('referred_celeb_name');
+      const referralCode = localStorage.getItem('referral_code');
+
+      if (referredBy && (role === 'fan' || role === 'user')) {
         try {
-          await setDoc(doc(db, 'users', uid), { referredBy }, { merge: true });
+          await setDoc(doc(db, 'users', uid), { 
+            referredBy,
+            assignedCelebrityId: referredBy,
+            assignedCelebrityName: assignedCelebrityName || null,
+            referralCode: referralCode || null
+          }, { merge: true });
         } catch (syncErr) {
           console.error("Error syncing referral ID:", syncErr);
         }
       }
       localStorage.removeItem('referred_by');
       localStorage.removeItem('referred_celeb_name');
+      localStorage.removeItem('referral_code');
 
       // Route Redirection
-      if (role === 'superadmin') {
+      if (role === 'superadmin' || role === 'super_admin') {
         navigate('/super-admin');
       } else if (role === 'celebrity') {
         navigate('/admin');
