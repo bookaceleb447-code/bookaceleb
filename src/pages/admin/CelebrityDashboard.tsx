@@ -110,6 +110,7 @@ export const CelebrityDashboard = () => {
   // States for sub-data
   const [bookings, setBookings] = useState<any[]>([]);
   const [memberships, setMemberships] = useState<any[]>([]);
+  const [expandedPendingId, setExpandedPendingId] = useState<string | null>(null);
   const [donations, setDonations] = useState<any[]>([]);
   const [referredUsers, setReferredUsers] = useState<any[]>([]);
   const [aiUsageCount, setAiUsageCount] = useState(0);
@@ -1624,83 +1625,205 @@ export const CelebrityDashboard = () => {
                     <h3 className="text-xl font-display font-bold uppercase tracking-widest text-white italic">Pending Fan Card Approvals</h3>
                     <div className="bg-slate-900/40 p-8 border border-white/5 rounded-[2.5rem] space-y-4">
                       {memberships.filter((m: any) => m.status === 'pending').length > 0 ? (
-                        memberships.filter((m: any) => m.status === 'pending').map((m: any) => (
-                          <div key={m.id} className="p-4 sm:p-5 bg-black/30 border border-white/5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 min-w-0 w-full">
-                            <div className="flex items-center gap-4 text-left min-w-0 flex-1 w-full md:w-auto">
-                              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-mono text-xs font-black uppercase shrink-0 animate-pulse">
-                                VIP
-                              </div>
-                              <div className="font-sans min-w-0 flex-1">
-                                <h4 className="font-bold text-white text-sm sm:text-md tracking-tight uppercase flex flex-wrap items-center gap-x-2 gap-y-1 break-all overflow-wrap-anywhere">
-                                  <span>{m.fanName || 'Elite Fan Account'}</span>
-                                  <span className="text-[9px] bg-primary/15 text-primary tracking-widest px-2 py-0.5 rounded border border-primary/20 shrink-0">{m.tierTitle || 'Custom Plan'}</span>
-                                </h4>
-                                <p className="text-[10px] text-white/40 font-mono italic mt-1 font-bold flex flex-wrap gap-x-1.5 items-center">
-                                  <span>Price: ${m.price}</span>
-                                  <span>•</span>
-                                  <span>Method: {m.paymentMethod?.toUpperCase()}</span>
-                                  <span>•</span>
-                                  <span>Date: {m.createdAt?.toDate ? m.createdAt.toDate().toLocaleDateString() : 'Awaiting sync'}</span>
-                                </p>
-                              </div>
-                            </div>
+                        memberships.filter((m: any) => m.status === 'pending').map((m: any) => {
+                          const isExpanded = expandedPendingId === m.id;
+                          return (
+                            <div key={m.id} className="p-5 bg-black/30 border border-white/5 rounded-3xl space-y-6 text-sans min-w-0 w-full">
+                              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                                <div className="flex items-center gap-4 text-left min-w-0 flex-1 w-full md:w-auto">
+                                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-mono text-sm font-black uppercase shrink-0 animate-pulse">
+                                    VIP
+                                  </div>
+                                  <div className="font-sans min-w-0 flex-1">
+                                    <h4 className="font-bold text-white text-sm sm:text-md tracking-tight uppercase flex flex-wrap items-center gap-x-2 gap-y-1 break-all overflow-wrap-anywhere">
+                                      <span>{m.fullname || m.fanName || 'Elite Fan Account'}</span>
+                                      <span className="text-[9px] bg-primary/15 text-primary tracking-widest px-2 py-0.5 rounded border border-primary/20 shrink-0">{m.tierTitle || 'Custom Plan'}</span>
+                                    </h4>
+                                    <p className="text-[10px] text-white/40 font-mono italic mt-1 font-bold flex flex-wrap gap-x-1.5 items-center">
+                                      <span>Price: ${m.price}</span>
+                                      <span>•</span>
+                                      <span>Method: {m.paymentMethod?.toUpperCase()}</span>
+                                      <span>•</span>
+                                      <span>Date: {m.createdAt?.toDate ? m.createdAt.toDate().toLocaleDateString() : 'Awaiting sync'}</span>
+                                    </p>
+                                  </div>
+                                </div>
 
-                            <div className="flex flex-wrap items-center gap-4 w-full md:w-auto font-sans justify-end">
-                              {m.paymentProof && (
-                                <a 
-                                  href={m.paymentProof} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="px-4 py-2 border border-white/10 hover:border-primary/40 hover:bg-white/5 rounded-xl text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1 shrink-0"
+                                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                                  <button
+                                    onClick={() => setExpandedPendingId(isExpanded ? null : m.id)}
+                                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] uppercase font-black tracking-widest border border-white/10 transition-all flex items-center gap-1 cursor-pointer"
+                                  >
+                                    {isExpanded ? 'Hide Details' : 'Verify Details & Card Preview'}
+                                  </button>
+
+                                  <button 
+                                    onClick={async () => {
+                                      try {
+                                        await updateDoc(doc(db, 'memberships', m.id), { status: 'approved' });
+                                        triggerToast('Fan Card Membership Approved');
+                                      } catch (err: any) {
+                                        alert(err.message);
+                                      }
+                                    }}
+                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer"
+                                  >
+                                    Approve Only
+                                  </button>
+                                  <button 
+                                    onClick={async () => {
+                                      if (!confirm('Reject this membership proof?')) return;
+                                      try {
+                                        await updateDoc(doc(db, 'memberships', m.id), { status: 'rejected' });
+                                        triggerToast('Membership proof rejected');
+                                      } catch (err: any) {
+                                        alert(err.message);
+                                      }
+                                    }}
+                                    className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 border border-rose-500/15 font-extrabold rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Collapse/Expand Information & live card rendering draft */}
+                              {isExpanded && (
+                                <motion.div 
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  className="pt-4 border-t border-white/5 grid grid-cols-1 lg:grid-cols-2 gap-8 text-left text-xs bg-black/20 p-4 sm:p-6 rounded-2xl"
                                 >
-                                  👁 Receipt Proof
-                                </a>
+                                  {/* Left: Applicant Details */}
+                                  <div className="space-y-4">
+                                    <h5 className="text-[10px] uppercase font-black text-primary tracking-widest">Formal Verification Docket</h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/5 p-4 rounded-xl border border-white/5">
+                                      <div>
+                                        <p className="opacity-45 uppercase text-[8px] font-black">Legal Name</p>
+                                        <p className="font-bold text-white text-xs mt-0.5">{m.fullname || 'Not specified'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="opacity-45 uppercase text-[8px] font-black">Registered Email</p>
+                                        <p className="font-bold text-white text-xs mt-0.5">{m.email || 'Not specified'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="opacity-45 uppercase text-[8px] font-black">Phone Number</p>
+                                        <p className="font-bold text-white text-xs mt-0.5">{m.phoneNumber || 'Not specified'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="opacity-45 uppercase text-[8px] font-black">Date of Birth</p>
+                                        <p className="font-bold text-white text-xs mt-0.5">{m.dob || 'Not specified'}</p>
+                                      </div>
+                                      <div className="sm:col-span-2">
+                                        <p className="opacity-45 uppercase text-[8px] font-black">Name to Appear on Card</p>
+                                        <p className="font-black text-[#dfb15b] text-sm mt-0.5">{m.fanName || 'Not specified'}</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex gap-4 items-center">
+                                      {m.photoUrl && (
+                                        <div className="shrink-0 space-y-1">
+                                          <p className="opacity-45 uppercase text-[8px] font-black text-left">Fan Passport Pic</p>
+                                          <div className="w-20 h-20 bg-slate-900 rounded-xl overflow-hidden border border-white/15">
+                                            <img src={m.photoUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {m.paymentProof && (
+                                        <div className="shrink-0 space-y-1">
+                                          <p className="opacity-45 uppercase text-[8px] font-black text-left">Gateway Receipt</p>
+                                          <a 
+                                            href={m.paymentProof} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="w-20 h-20 bg-slate-900 rounded-xl overflow-hidden border border-white/15 block hover:opacity-80 transition-all text-xs flex items-center justify-center font-black uppercase tracking-widest text-[#dfb15b]"
+                                          >
+                                            <img src={m.paymentProof} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Alternative Card File Upload overrides */}
+                                    <div className="space-y-2 pt-2">
+                                      <p className="opacity-45 uppercase text-[8px] font-black">Manual Card Overwrite</p>
+                                      <label className="inline-flex px-4 py-2 bg-[#dfb15b]/10 hover:bg-[#dfb15b]/20 text-[#dfb15b] border border-[#dfb15b]/20 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer items-center gap-1.5 transition-all">
+                                        <UploadCloud size={11} />
+                                        <span>{uploadingCardId === m.id ? 'Uploading Card...' : 'Approve & Upload Custom Card layout'}</span>
+                                        <input 
+                                          type="file" 
+                                          accept="image/*,application/pdf" 
+                                          className="hidden" 
+                                          disabled={uploadingCardId !== null}
+                                          onChange={(e) => handleUploadFanCardImage(m.id, e.target.files?.[0])} 
+                                        />
+                                      </label>
+                                    </div>
+                                  </div>
+
+                                  {/* Right: Fan Card Visual Preview */}
+                                  <div className="space-y-4">
+                                    <h5 className="text-[10px] uppercase font-black text-[#dfb15b] tracking-widest">Digital VIP Membership Card Preview</h5>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      {/* Front preview */}
+                                      <div className="rounded-xl border border-[#dfb15b]/30 bg-gradient-to-br from-[#0c1445] via-[#04081c] to-[#0e0721] p-3 aspect-[1.58] flex flex-col justify-between overflow-hidden relative shadow-lg">
+                                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(223,177,91,0.06),transparent_60%)] pointer-events-none" />
+                                        <div className="flex justify-between items-start text-[6px]">
+                                          <div>
+                                            <p className="font-black text-white">BOOK A CELEBRITY™</p>
+                                            <p className="text-[#dfb15b] uppercase font-black tracking-widest">OFFICIAL VIP MEMBERSHIP</p>
+                                          </div>
+                                          <span className="px-1 bg-[#dfb15b]/10 border border-[#dfb15b]/20 text-[#dfb15b] font-black rounded text-[5px]">👑 VIP</span>
+                                        </div>
+
+                                        <div className="p-1 bg-white/5 border border-white/5 rounded text-[8px] leading-tight">
+                                          <p className="font-extrabold text-white truncate">{celebData?.celebName}</p>
+                                          <p className="text-[5px] text-[#dfb15b] font-bold">{celebData?.celebCategory || 'BACKSTAGE CELEB'}</p>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-8 h-8 rounded-full overflow-hidden border border-[#dfb15b]/40 bg-slate-950">
+                                            {m.photoUrl ? (
+                                              <img src={m.photoUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            ) : (
+                                              <div className="w-full h-full bg-slate-900" />
+                                            )}
+                                          </div>
+                                          <div className="min-w-0 flex-1 text-left text-[9px]">
+                                            <p className="font-black text-white truncate">{m.fanName}</p>
+                                            <p className="text-[5px] text-[#dfb15b] uppercase font-bold">{m.tierTitle}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Back preview */}
+                                      <div className="rounded-xl border border-white/10 bg-[#04081c] p-3 aspect-[1.58] flex flex-col justify-between text-left text-[6px] shadow-lg">
+                                        <div className="space-y-1">
+                                          <h4 className="font-black text-[#dfb15b] text-[8px]">MEMBERSHIP CERTIFICATE</h4>
+                                          <p className="text-white/60 leading-tight">
+                                            Certified member in {celebData?.celebName}'s exclusive backstage fan club community. Entitled to deluxe benefits.
+                                          </p>
+                                        </div>
+
+                                        <div className="border-t border-b border-white/5 py-1">
+                                          <p className="text-white/30 truncate">MEMBER IDENTIFIER</p>
+                                          <p className="font-mono font-bold text-white truncate mt-0.5">{m.membershipCardId || 'BAC_VERIFIED'}</p>
+                                        </div>
+
+                                        <div className="flex justify-between items-center text-[5px] text-white/40">
+                                          <span>Verified authentication</span>
+                                          <span className="text-[#dfb15b] font-bold">www.bookaceleb.site</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </motion.div>
                               )}
-                              
-                              <div className="flex flex-wrap items-center gap-2">
-                                <label className="px-3 py-2 border border-dashed border-white/10 hover:border-primary/30 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer flex items-center gap-1.5 bg-black/20 hover:bg-black/40 text-white/70 hover:text-white transition-all">
-                                  <UploadCloud size={11} />
-                                  <span>{uploadingCardId === m.id ? 'Attaching...' : 'Upload & Approve'}</span>
-                                  <input 
-                                    type="file" 
-                                    accept="image/*,application/pdf" 
-                                    className="hidden" 
-                                    disabled={uploadingCardId !== null}
-                                    onChange={(e) => handleUploadFanCardImage(m.id, e.target.files?.[0])} 
-                                  />
-                                </label>
-
-                                <button 
-                                  onClick={async () => {
-                                    try {
-                                      await updateDoc(doc(db, 'memberships', m.id), { status: 'approved' });
-                                      triggerToast('Fan Card Membership Approved');
-                                    } catch (err: any) {
-                                      alert(err.message);
-                                    }
-                                  }}
-                                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer"
-                                >
-                                  Approve Only
-                                </button>
-                                <button 
-                                  onClick={async () => {
-                                    if (!confirm('Reject this membership proof?')) return;
-                                    try {
-                                      await updateDoc(doc(db, 'memberships', m.id), { status: 'rejected' });
-                                      triggerToast('Membership proof rejected');
-                                    } catch (err: any) {
-                                      alert(err.message);
-                                    }
-                                  }}
-                                  className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 border border-rose-500/20 font-extrabold rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer"
-                                >
-                                  Reject
-                                </button>
-                              </div>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <div className="py-12 text-center rounded-2xl border border-dashed border-white/5 bg-black/10">
                           <p className="text-white/25 text-xs font-bold uppercase tracking-widest">No pending fan card approvals in verification queue</p>
