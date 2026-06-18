@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { uploadToCloudinary } from '../../lib/cloudinary';
 import { motion, AnimatePresence } from 'motion/react';
 import { CelebrityHeader, FAQSection } from '../../components/CelebrityLayout';
+import { VIPCardFront, VIPCardBack } from '../../components/VIPCard';
 import { 
   CreditCard, 
   UploadCloud, 
@@ -855,135 +856,30 @@ export const FanCardPage = () => {
                       className="w-full h-full transform-style-3d relative"
                     >
                       {/* FRONT SIDE */}
-                      <div className="absolute inset-0 w-full h-full backface-hidden rounded-[24px] overflow-hidden border-2 border-[#dfb15b] bg-[radial-gradient(ellipse_at_top_right,rgba(223,177,91,0.18),transparent_70%)] bg-[#040714] p-5 flex flex-col justify-between shadow-2xl shadow-black/90 text-left">
-                        {/* Inner glowing metallic border lines */}
-                        <div className="absolute inset-1 border border-[#dfb15b]/20 rounded-[22px] pointer-events-none z-0" />
-                        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.01)_0%,rgba(255,255,255,0.05)_50%,rgba(255,255,255,0)_100%)] pointer-events-none" />
-
-                        {/* Celebrity portrait mask overlay */}
-                        {celeb?.avatarUrl && (
-                          <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none opacity-20 z-0">
-                            <div className="absolute inset-0 bg-gradient-to-l from-transparent to-[#040714] z-10" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#040714] via-transparent to-[#040714] z-10" />
-                            <img 
-                              src={celeb.avatarUrl} 
-                              className="w-full h-full object-cover filter brightness-90 contrast-125 select-none" 
-                              referrerPolicy="no-referrer"
-                              alt=""
-                            />
-                          </div>
-                        )}
-
-                        {/* Top Area */}
-                        <div className="relative z-10 flex justify-between items-start">
-                          <div className="text-left">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white/95 leading-none">BOOK A CELEBRITY™</p>
-                            <p className="text-[7.5px] text-[#dfb15b] uppercase font-black tracking-widest mt-1">OFFICIAL VIP CORPS</p>
-                          </div>
-                          <span className="px-2.5 py-0.5 bg-gradient-to-r from-[#dfb15b] to-[#c59a43] text-black text-[7.5px] font-black uppercase tracking-widest rounded shadow-md shadow-amber-500/10 shrink-0">👑 {(approvedMembership.tierTitle || 'VIP MEMBER').toUpperCase()}</span>
-                        </div>
-
-                        {/* Celeb info badge */}
-                        <div className="relative z-10 my-1 p-2 bg-white/[0.02] border border-white/5 rounded-xl text-left backdrop-blur-sm">
-                          <p className="text-[14px] font-black italic uppercase text-white truncate leading-none">{celeb?.celebName || approvedMembership.celebName}</p>
-                          <p className="text-[7px] text-[#dfb15b] uppercase font-black tracking-widest mt-1">OFFICIAL SELECTION CREATOR</p>
-                        </div>
-
-                        {/* Account Portrait & Identity Details row */}
-                        <div className="relative z-10 flex items-center gap-3.5 text-left">
-                          <div className="relative shrink-0">
-                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#dfb15b] p-0.5 bg-slate-950 shadow-[0_0_12px_rgba(223,177,91,0.3)]">
-                              <img 
-                                src={approvedMembership.photoUrl || 'https://picsum.photos/seed/vip/200'} 
-                                className="w-full h-full object-cover rounded-full"
-                                referrerPolicy="no-referrer"
-                                alt=""
-                              />
-                            </div>
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 text-black font-black rounded-full border border-black flex items-center justify-center text-[8px] shadow-lg">✓</div>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[14px] font-black text-white uppercase tracking-tight truncate leading-none">{approvedMembership.fanName}</p>
-                            <div className="flex gap-4 mt-2 text-[7px] font-black uppercase text-white/50">
-                              <div>
-                                <p className="text-white/30 text-[5px]">TIER LEVEL</p>
-                                <p className="text-[#dfb15b] font-black leading-none mt-0.5">{approvedMembership.tierTitle}</p>
-                              </div>
-                              <div>
-                                <p className="text-white/30 text-[5px]">REGISTRY ID</p>
-                                <p className="font-mono text-white/90 leading-none mt-0.5">{approvedMembership.membershipCardId || approvedMembership.id.substring(0, 12).toUpperCase()}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Footer details & high-fidelity Verification QR representation */}
-                        <div className="relative z-10 flex justify-between items-center border-t border-white/5 pt-1.5 mt-1">
-                          <span className="text-[5.5px] text-white/35 uppercase tracking-widest font-black">DECEN-LEDGER ENCRYPTED CR80 PASS</span>
-                          
-                          <div className="w-6 h-6 shrink-0 opacity-80 text-[#dfb15b]">
-                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-                              <path d="M2 2h6v6H2V2zm1 1v4h4V3H3zm13-1h6v6h-6V2zm1 1v4h4V3h-4zm-14 14h6v6H2v-6zm1 1v4h4v-4H3zm12-4h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm4-4h2v2h-2v-2zm0 4h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2zm-8-4h2v2h-2v-2zm0 4h2v2h-2v-2zm2-2h2v2h-2v-2zm-2-2h2v2h-2v-2z" />
-                            </svg>
-                          </div>
-                        </div>
+                      <div className="absolute inset-0 w-full h-full backface-hidden rounded-[2rem] overflow-hidden shadow-2xl shadow-black/90 text-left">
+                        <VIPCardFront
+                          celebName={celeb?.celebName || approvedMembership.celebName}
+                          fanName={approvedMembership.fanName}
+                          tierTitle={approvedMembership.tierTitle}
+                          membershipCardId={approvedMembership.membershipCardId || approvedMembership.id.substring(0, 12).toUpperCase()}
+                          photoUrl={approvedMembership.photoUrl}
+                          joinDate={approvedMembership.createdAt?.toDate ? approvedMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
+                        />
                       </div>
 
                       {/* BACK SIDE */}
-                      <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-[24px] overflow-hidden border-2 border-[#dfb15b]/40 bg-[#02040b] p-5 flex flex-col justify-between text-left shadow-2xl relative">
-                        <div className="absolute inset-1 border border-[#dfb15b]/10 rounded-[22px] pointer-events-none z-0" />
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(223,177,91,0.03)_0%,transparent_80%)] pointer-events-none" />
-
-                        <div className="space-y-1 relative z-10">
-                          <h4 className="text-[9px] font-black uppercase text-[#dfb15b] tracking-widest leading-none">OFFICIAL MEMBERSHIP CERTIFICATE</h4>
-                          <p className="text-[7px] text-white/70 leading-normal font-medium">
-                            This certifies that the cardholder is an officially registered member of the celebrity fan community and is entitled to membership benefits associated with the selected plan.
-                          </p>
-                        </div>
-
-                        {/* Credentials metadata grid row layout */}
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-b border-white/5 py-2 my-1.5 text-[6px] relative z-10">
-                          <div>
-                            <p className="text-white/30 font-black">CELEBRITY SPONSOR</p>
-                            <p className="font-extrabold text-white truncate leading-none mt-0.5">{celeb?.celebName || approvedMembership.celebName}</p>
-                          </div>
-                          <div>
-                            <p className="text-white/30 font-black">MEMBERSHIP CARD ID</p>
-                            <p className="font-mono font-extrabold text-white truncate leading-none mt-0.5">{approvedMembership.membershipCardId || approvedMembership.id.substring(0, 12).toUpperCase()}</p>
-                          </div>
-                          <div>
-                            <p className="text-white/30 font-black">CARDHOLDER REGISTRANT</p>
-                            <p className="font-extrabold text-white truncate leading-none mt-0.5">{approvedMembership.fanName}</p>
-                          </div>
-                          <div>
-                            <p className="text-white/30 font-black">MEMBERSHIP TIER LEVEL</p>
-                            <p className="font-extrabold text-[#dfb15b] truncate leading-none mt-0.5">{approvedMembership.tierTitle}</p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1 relative z-10 text-left">
-                          <p className="text-[6px] text-[#dfb15b] font-black tracking-widest leading-none">ACTIVE PRIVILEGES SAMPLE:</p>
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[6px] text-white/80 leading-tight">
-                            {activePerksAndFallback(approvedMembership.tier).slice(0, 4).map((p, i) => (
-                              <p key={i} className="truncate font-bold">✓ {p}</p>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Security stamp (Removed URL Completely) */}
-                        <div className="flex justify-between items-center border-t border-white/5 pt-1.5 mt-1 text-[6px] relative z-10">
-                          <p className="text-white/35 font-mono truncate">SYSTEM AUTH-KEY: SECURE-LEDGER-ID</p>
-                          
-                          <div className="flex items-center gap-1 shrink-0">
-                            <div className="relative w-4 h-4 flex items-center justify-center">
-                              <div className="absolute inset-0 border border-dashed border-[#dfb15b] rounded-full animate-spin-slow opacity-60" />
-                              <div className="w-2.5 h-2.5 bg-[#dfb15b] rounded-full flex items-center justify-center text-[4px] font-black text-black">
-                                VIP
-                              </div>
-                            </div>
-                            <p className="text-[#dfb15b] font-black tracking-widest uppercase text-[6px]">VERIFIED</p>
-                          </div>
-                        </div>
+                      <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-[2rem] overflow-hidden shadow-2xl relative">
+                        <VIPCardBack
+                          celebName={celeb?.celebName || approvedMembership.celebName}
+                          fanName={approvedMembership.fanName}
+                          tierTitle={approvedMembership.tierTitle}
+                          membershipCardId={approvedMembership.membershipCardId || approvedMembership.id.substring(0, 12).toUpperCase()}
+                          joinDate={approvedMembership.createdAt?.toDate ? approvedMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
+                          validUntil={approvedMembership.createdAt?.toDate 
+                            ? new Date(approvedMembership.createdAt.toDate().setFullYear(approvedMembership.createdAt.toDate().getFullYear() + 1)).toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() 
+                            : new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()
+                          }
+                        />
                       </div>
                     </motion.div>
                   </div>
@@ -1032,50 +928,23 @@ export const FanCardPage = () => {
             <div className="space-y-4">
               <p className="text-white/40 text-[9.5px] font-black uppercase tracking-widest">SUBMITTED CARD SPECIFICATION</p>
               
-              <div className="perspective-1000 w-full max-w-[380px] aspect-[1.58] mx-auto relative text-left">
-                <div className="w-full h-full rounded-[24px] border border-dashed border-[#dfb15b]/40 bg-gradient-to-br from-[#111215] to-[#1a1b22] p-5 flex flex-col justify-between overflow-hidden relative shadow-2xl opacity-85">
-                  <div className="absolute inset-0 bg-black/55 flex items-center justify-center z-20 backdrop-blur-[1px]">
-                    <span className="px-4 py-2 border-2 border-amber-500/50 text-amber-500 font-black tracking-widest text-xs uppercase rounded-xl bg-black/80 rotate-[-12deg] shadow-lg shadow-black/80">
+              <div className="perspective-1000 w-full max-w-[420px] aspect-[1.58] mx-auto relative text-left">
+                <div className="w-full h-full relative rounded-[2rem] overflow-hidden shadow-2xl opacity-75">
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 backdrop-blur-[2px] rounded-[2rem]">
+                    <span className="px-5 py-2.5 border-2 border-amber-500/50 text-amber-400 font-extrabold tracking-[0.2em] text-xs uppercase rounded-2xl bg-black/90 rotate-[-12deg] shadow-2xl shadow-black/95">
                       PENDING VERIFICATION
                     </span>
                   </div>
                   
                   {/* Render Front Card with pending details */}
-                  <div className="flex justify-between items-start z-10 text-left">
-                    <div>
-                      <p className="text-[10px] font-black tracking-widest text-white/95 leading-none">BOOK A CELEBRITY™</p>
-                      <p className="text-[7.5px] text-[#dfb15b] uppercase font-black tracking-widest leading-none mt-1">OFFICIAL VIP CORPS</p>
-                    </div>
-                    <span className="px-2.5 py-0.5 bg-amber-500/10 text-amber-300 border border-amber-500/25 text-[7.5px] font-black uppercase tracking-widest rounded animate-pulse">
-                      {(pendingMembership.tierTitle || 'Platinum Access').toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className="z-10 text-center my-0.5">
-                    <p className="text-md font-black italic uppercase text-white truncate leading-none">{celeb?.celebName || pendingMembership.celebName}</p>
-                    <p className="text-[7px] text-[#dfb15b] uppercase font-black tracking-widest mt-1">OFFICIAL SELECTION CREATOR</p>
-                  </div>
-
-                  <div className="flex items-center gap-3.5 z-10 text-left">
-                    <div className="relative shrink-0">
-                      <div className="w-12 h-12 rounded-full overflow-hidden border border-white/10 bg-slate-950">
-                        <img src={pendingMembership.photoUrl || 'https://picsum.photos/seed/vip/200'} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-                      </div>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-black text-white uppercase tracking-tight truncate leading-none mb-1">{pendingMembership.fanName}</p>
-                      <div className="flex gap-4 text-[7px] font-black uppercase text-white/50">
-                        <div>
-                          <p className="text-white/30 text-[5px]">TIER LEVEL</p>
-                          <p className="text-[#dfb15b] font-black leading-none mt-0.5">{pendingMembership.tierTitle}</p>
-                        </div>
-                        <div>
-                          <p className="text-white/30 text-[5px]">REGISTRY ID</p>
-                          <p className="font-mono text-white/90 leading-none mt-0.5">{pendingMembership.membershipCardId || 'BAC-VIP-99420'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <VIPCardFront
+                    celebName={celeb?.celebName || pendingMembership.celebName}
+                    fanName={pendingMembership.fanName}
+                    tierTitle={pendingMembership.tierTitle}
+                    membershipCardId={pendingMembership.membershipCardId || 'BAC-VIP-PENDING'}
+                    photoUrl={pendingMembership.photoUrl}
+                    joinDate={pendingMembership.createdAt?.toDate ? pendingMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
+                  />
                 </div>
               </div>
             </div>
@@ -1344,63 +1213,15 @@ export const FanCardPage = () => {
                         </label>
                         
                         {/* Static Front Card Preview layout */}
-                        <div className="w-full rounded-[1.75rem] border-2 border-[#dfb15b] bg-[radial-gradient(ellipse_at_top_right,rgba(223,177,91,0.18),transparent_70%)] bg-[#040714] p-5 aspect-[1.58] flex flex-col justify-between overflow-hidden relative shadow-2xl">
-                          {/* Inner glowing metallic border lines */}
-                          <div className="absolute inset-1 border border-[#dfb15b]/20 rounded-[1.5rem] pointer-events-none z-0" />
-                          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.01)_0%,rgba(255,255,255,0.05)_50%,rgba(255,255,255,0)_100%)] pointer-events-none" />
-
-                          {/* Celebrity low-opacity background photo integration */}
-                          {celeb?.avatarUrl && (
-                            <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none opacity-20 z-0">
-                              <div className="absolute inset-0 bg-gradient-to-l from-transparent to-[#040714] z-10" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-[#040714] via-transparent to-[#040714] z-10" />
-                              <img 
-                                src={celeb.avatarUrl} 
-                                className="w-full h-full object-cover filter brightness-90 contrast-125 select-none" 
-                                referrerPolicy="no-referrer"
-                                alt=""
-                              />
-                            </div>
-                          )}
-
-                          <div className="flex justify-between items-start z-10">
-                            <div className="text-left">
-                              <p className="text-[9px] font-black tracking-widest text-white/95 leading-none">BOOK A CELEBRITY™</p>
-                              <p className="text-[6.5px] text-[#dfb15b] uppercase font-black tracking-widest leading-none mt-1">OFFICIAL VIP CORPS</p>
-                            </div>
-                            <span className="px-2.5 py-0.5 bg-gradient-to-r from-[#dfb15b] to-[#c59a43] text-black text-[6.5px] font-black uppercase tracking-widest rounded shadow-md shadow-amber-500/10 shrink-0">👑 PLATINUM VIP</span>
-                          </div>
-
-                          <div className="z-10 p-2 bg-white/[0.02] border border-white/5 rounded-xl text-left backdrop-blur-sm">
-                            <p className="text-[13px] font-black italic uppercase text-white truncate leading-none">{celeb?.celebName || 'Celebrity Sponsor'}</p>
-                            <p className="text-[6.5px] text-[#dfb15b] uppercase font-black tracking-widest mt-1">{celeb?.celebCategory || 'EXCLUSIVE RESIDENT CREATOR'}</p>
-                          </div>
-
-                          <div className="flex items-center gap-3.5 z-10 text-left">
-                            <div className="relative shrink-0">
-                              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#dfb15b] p-0.5 bg-slate-950 shadow-[0_0_12px_rgba(223,177,91,0.3)]">
-                                {photoPreview ? (
-                                  <img src={photoPreview} className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" alt="" />
-                                ) : (
-                                  <User size={20} className="text-white/20 animate-pulse m-auto" />
-                                )}
-                              </div>
-                              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border border-black flex items-center justify-center text-[7px] shadow-lg">✓</div>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[13px] font-black text-white uppercase tracking-tight truncate leading-none mb-1">{cardName || 'SARAH JOHNSON'}</p>
-                              <div className="flex gap-4 text-[6.5px] font-black uppercase text-white/50">
-                                <div>
-                                  <p className="text-white/30 text-[5px]">TIER LEVEL</p>
-                                  <p className="text-[#dfb15b] font-black">{currentTier?.title || 'PLATINUM VIP'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/30 text-[5px]">REGISTRY ID</p>
-                                  <p className="font-mono text-white/90">{membershipCardId}</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                        <div className="w-full aspect-[1.58] overflow-visible relative">
+                          <VIPCardFront
+                            celebName={celeb?.celebName || 'Celebrity Sponsor'}
+                            fanName={cardName || 'SARAH JOHNSON'}
+                            tierTitle={currentTier?.title || 'PLATINUM VIP'}
+                            membershipCardId={membershipCardId}
+                            photoUrl={photoPreview || undefined}
+                            joinDate={new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
+                          />
                         </div>
                       </div>
                     </div>
