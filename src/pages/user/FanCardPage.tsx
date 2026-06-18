@@ -278,6 +278,10 @@ export const FanCardPage = () => {
 
     const cardId = m.membershipCardId || m.id?.substring(0, 12).toUpperCase() || 'BAC-VIP-955418';
 
+    const planLabel = m.tierTitle?.toUpperCase()?.includes('PLAN') 
+      ? m.tierTitle.toUpperCase() 
+      : `${m.tierTitle?.toUpperCase() || 'GOLD'} PLAN`;
+
     // Background base canvas fill (very high end deep dark matte)
     ctx.fillStyle = '#05060B';
     ctx.fillRect(0, 0, width, height);
@@ -327,12 +331,12 @@ export const FanCardPage = () => {
     ctx.clip();
 
     // 1. Base dark theme background matching the component
-    ctx.fillStyle = '#0A0C16';
+    ctx.fillStyle = '#05060B';
     ctx.fillRect(fx, fy, cw, ch);
 
     // 2. Diagonal brush texture pattern lines
     ctx.strokeStyle = 'rgba(223, 177, 91, 0.05)';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.0;
     for (let i = -ch; i < cw; i += 12) {
       ctx.beginPath();
       ctx.moveTo(fx + i, fy);
@@ -341,13 +345,10 @@ export const FanCardPage = () => {
     }
 
     // 3. Security circular concentric guilloche waves
-    ctx.strokeStyle = 'rgba(223, 177, 91, 0.025)';
-    ctx.lineWidth = 1;
-    const cx = fx + cw * 0.28;
-    const cy = fy + ch * 0.5;
-    ctx.beginPath(); ctx.arc(cx, cy, 180, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, 220, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, 260, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(223, 177, 91, 0.02)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(fx + cw * 0.5, fy + ch * 0.5, 180, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(fx + cw * 0.5, fy + ch * 0.5, 240, 0, Math.PI * 2); ctx.stroke();
 
     // 4. Clean sweep golden diagonal shine
     const shineGrad = ctx.createLinearGradient(fx, fy, fx + cw, fy + ch);
@@ -357,358 +358,246 @@ export const FanCardPage = () => {
     ctx.fillStyle = shineGrad;
     ctx.fillRect(fx, fy, cw, ch);
 
-    // 5. Left side branding text
-    // "BOOK A CELEBRITY"
-    const textGold = ctx.createLinearGradient(fx + 40, fy + 50, fx + 280, fy + 50);
-    textGold.addColorStop(0, '#FDF0CE');
-    textGold.addColorStop(0.5, '#DFB15B');
-    textGold.addColorStop(1, '#A37B34');
-    ctx.fillStyle = textGold;
-    ctx.font = '900 24px "Inter", sans-serif';
-    ctx.fillText('BOOK A CELEBRITY™', fx + 40, fy + 55);
-
-    // "OFFICIAL VIP MEMBERSHIP"
-    ctx.fillStyle = '#A5ABB8';
-    ctx.font = '800 11px "Inter", sans-serif';
-    ctx.fillText('OFFICIAL VIP MEMBERSHIP', fx + 40, fy + 78);
-
-    // 6. Celebrity Name Pill Bagde
-    const activeCelebName = celeb?.celebName || m.celebName || 'Artist Official';
-    ctx.font = '800 11px "Inter", sans-serif';
-    const textWidth = ctx.measureText(activeCelebName.toUpperCase()).width;
-    
-    ctx.fillStyle = '#15192c';
-    ctx.strokeStyle = 'rgba(223, 177, 91, 0.25)';
-    ctx.lineWidth = 1;
-    // Draw rounded rect pill for the celeb name
-    drawRoundedRect(fx + 40, fy + 95, textWidth + 35, 24, 6);
-    ctx.fill();
-    ctx.stroke();
-
-    // Star icon inside pill
-    ctx.fillStyle = '#DFB15B';
-    ctx.beginPath();
-    // Star shape
-    const sx = fx + 48;
-    const sy = fy + 107;
-    ctx.arc(sx, sy, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#DFB15B';
-    ctx.font = '900 10px "Inter", sans-serif';
-    ctx.fillText(activeCelebName.toUpperCase(), fx + 62, fy + 111);
-
-    // 7. EMV Golden Chip
-    const chipGrad = ctx.createLinearGradient(fx + 40, fy + 155, fx + 115, fy + 155);
-    chipGrad.addColorStop(0, '#edd393');
-    chipGrad.addColorStop(0.5, '#DFB15B');
-    chipGrad.addColorStop(1, '#b38530');
-    
-    ctx.fillStyle = chipGrad;
-    drawRoundedRect(fx + 40, fy + 155, 75, 48, 8);
-    ctx.fill();
-
-    // Draw chip pattern details
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(fx + 40, fy + 179);
-    ctx.lineTo(fx + 115, fy + 179);
-    ctx.moveTo(fx + 65, fy + 155);
-    ctx.lineTo(fx + 65, fy + 203);
-    ctx.moveTo(fx + 90, fy + 155);
-    ctx.lineTo(fx + 90, fy + 203);
-    ctx.stroke();
-
-    // Contactless wave logo right of the chip
-    ctx.strokeStyle = '#DFB15B';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    const wx = fx + 140;
-    const wy = fy + 179;
-    ctx.beginPath(); ctx.arc(wx - 15, wy, 15, -Math.PI / 4, Math.PI / 4); ctx.stroke();
-    ctx.beginPath(); ctx.arc(wx - 10, wy, 20, -Math.PI / 4, Math.PI / 4); ctx.stroke();
-    ctx.beginPath(); ctx.arc(wx - 5, wy, 25, -Math.PI / 4, Math.PI / 4); ctx.stroke();
-
-    // 8. Main Member Title
-    const nameGrad = ctx.createLinearGradient(fx + 40, fy + 270, fx + 400, fy + 270);
-    nameGrad.addColorStop(0, '#FFFFFF');
-    nameGrad.addColorStop(0.5, '#FFF3D6');
-    nameGrad.addColorStop(1, '#DFB15B');
-    ctx.fillStyle = nameGrad;
-    ctx.font = '900 36px "Inter", sans-serif';
-    ctx.fillText((m.fanName || 'BENJAMIN').toUpperCase(), fx + 40, fy + 285);
-
-    ctx.fillStyle = '#818B9C';
-    ctx.font = '800 12px "Inter", sans-serif';
-    ctx.fillText('EXCLUSIVE RESIDENT CREATOR', fx + 40, fy + 310);
-
-    // 9. Bottom Details Table Row
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(fx + 40, fy + 355);
-    ctx.lineTo(fx + 480, fy + 355);
-    ctx.stroke();
-
-    // Labels & Metadata
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.font = '900 9px "Inter", sans-serif';
-    ctx.fillText('TIER LEVEL', fx + 40, fy + 382);
-    ctx.fillText('MEMBER SINCE', fx + 180, fy + 382);
-    ctx.fillText('MEMBERSHIP ID', fx + 40, fy + 450);
-
-    const planLabel = m.tierTitle?.toUpperCase()?.includes('PLAN') 
-      ? m.tierTitle.toUpperCase() 
-      : `${m.tierTitle?.toUpperCase() || 'GOLD'} PLAN`;
-
-    ctx.fillStyle = '#DFB15B';
-    ctx.font = '900 18px "Inter", sans-serif';
-    ctx.fillText(planLabel, fx + 40, fy + 408);
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 18px "Inter", sans-serif';
-    ctx.fillText(jDateStr, fx + 180, fy + 408);
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px "Courier New", monospace';
-    ctx.fillText(cardId, fx + 40, fy + 472);
-
-    // Signature Box Right of Table
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(fx + 340, fy + 370);
-    ctx.lineTo(fx + 340, fy + 480);
-    ctx.stroke();
-
-    ctx.fillStyle = '#DFB15B';
-    ctx.font = 'italic 25px "Georgia", "Inter", sans-serif';
-    ctx.fillText('Book A Celebrity', fx + 355, fy + 416);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.font = '900 9px "Inter", sans-serif';
-    ctx.fillText('AUTHORIZED SIGNATURE', fx + 355, fy + 445);
-
-    ctx.restore(); // restores clip
-
     // ==========================================
-    // SWEEPING PORTRAIT & METAL BANNER CLIP RIGHT SIDE
+    // LEFT SIDE: FAN / MEMBER PHOTO
     // ==========================================
+    const fanX = fx + cw * 0.06;
+    const fanY = fy + ch * 0.14;
+    const portraitW = cw * 0.28;
+    const portraitH = ch * 0.62;
+
     ctx.save();
-    
-    // Draw and clip to Card boundary again
-    drawRoundedRect(fx, fy, cw, ch, 36);
-    ctx.clip();
+    ctx.fillStyle = '#0C1024';
+    drawRoundedRect(fanX, fanY, portraitW, portraitH, 20);
+    ctx.fill();
+    ctx.restore();
 
-    // Creating arched clipping boundary for picture
-    ctx.save();
-    
-    ctx.beginPath();
-    ctx.moveTo(fx + cw * 0.52, fy); // Start near 52% of card width
-    ctx.lineTo(fx + cw, fy);
-    ctx.lineTo(fx + cw, fy + ch);
-    ctx.lineTo(fx + cw * 0.52, fy + ch);
-    // Draw concave curve moving inwards from center left to sweep elegantly
-    ctx.bezierCurveTo(
-      fx + cw * 0.44, fy + ch * 0.75, // control point 1
-      fx + cw * 0.44, fy + ch * 0.25, // control point 2
-      fx + cw * 0.52, fy              // end point back at top
-    );
-    ctx.closePath();
-    ctx.clip();
-
-    // Background behind photo (fall-back color)
-    ctx.fillStyle = '#0F1221';
-    ctx.fillRect(fx + cw * 0.42, fy, cw * 0.6, ch);
-
-    // Try drawing member's profile photograph
-    const photoSrc = m.photoUrl;
-    if (photoSrc) {
+    if (m.photoUrl) {
       try {
         const pimg = new Image();
         pimg.crossOrigin = 'anonymous';
-        pimg.src = photoSrc;
-        
+        pimg.src = m.photoUrl;
         await new Promise((resolve) => {
           pimg.onload = resolve;
           pimg.onerror = resolve;
         });
-
-        // Calculate aspect ratios for professional centered fitting
+        ctx.save();
+        drawRoundedRect(fanX, fanY, portraitW, portraitH, 20);
+        ctx.clip();
+        
+        // Crop and draw
         const imgRatio = pimg.width / pimg.height;
-        const rectW = cw * 0.6;
-        const rectH = ch;
-        let drawW = rectW;
-        let drawH = rectW / imgRatio;
-        if (drawH < rectH) {
-          drawH = rectH;
-          drawW = rectH * imgRatio;
+        let drawW = portraitW;
+        let drawH = portraitW / imgRatio;
+        if (drawH < portraitH) {
+          drawH = portraitH;
+          drawW = portraitH * imgRatio;
         }
-        const dx = fx + cw - drawW;
-        const dy = fy + (rectH - drawH) / 2;
-
+        const dx = fanX + (portraitW - drawW) / 2;
+        const dy = fanY + (portraitH - drawH) / 2;
         ctx.drawImage(pimg, dx, dy, drawW, drawH);
+        
+        // Bottom overlay gradient on photo
+        const shadowGrad = ctx.createLinearGradient(fanX, fanY + portraitH * 0.7, fanX, fanY + portraitH);
+        shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+        ctx.fillStyle = shadowGrad;
+        ctx.fillRect(fanX, fanY, portraitW, portraitH);
+        
+        ctx.restore();
       } catch (e) {
-        console.warn('CORS prevented secure canvas photo draw, fallback rendered:', e);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.fillRect(fx + cw * 0.42, fy, cw * 0.6, ch);
+        console.error('Failed to draw fan photo on canvas:', e);
       }
     } else {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-      ctx.fillRect(fx + cw * 0.42, fy, cw * 0.6, ch);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      drawRoundedRect(fanX, fanY, portraitW, portraitH, 20);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.font = '900 12px "Inter", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('NO PHOTO', fanX + portraitW / 2, fanY + portraitH / 2);
     }
+    // Draw gold outer stroke:
+    strokeGoldBorder(fanX, fanY, portraitW, portraitH, 20, 2.5);
 
-    // Shadow on overlay gradient over face to make it premium
-    const portraitFade = ctx.createLinearGradient(fx + cw * 0.45, fy, fx + cw, fy);
-    portraitFade.addColorStop(0, 'rgba(10, 12, 22, 0.8)');
-    portraitFade.addColorStop(0.2, 'rgba(10, 12, 22, 0)');
-    ctx.fillStyle = portraitFade;
-    ctx.fillRect(fx + cw * 0.45, fy, cw * 0.65, ch);
-
-    ctx.restore(); // restored portrait sweep clip
-
-    // Golden boundary line outline for swept curve
-    ctx.save();
-    ctx.strokeStyle = '#DFB15B';
-    ctx.lineWidth = 4;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    ctx.moveTo(fx + cw * 0.52, fy);
-    ctx.bezierCurveTo(
-      fx + cw * 0.44, fy + ch * 0.75,
-      fx + cw * 0.44, fy + ch * 0.25,
-      fx + cw * 0.52, fy
-    );
-    ctx.stroke();
-    ctx.restore();
-
-    // ==========================================
-    // TOP CENTER-RIGHT HANGING BRAND TAG
-    // ==========================================
-    ctx.save();
-    const tagX = fx + cw * 0.52 - 37;
-    const tagY = fy;
-    const tagW = 74;
-    const tagH = 96;
-
-    // Hanging polygon clip
-    ctx.beginPath();
-    ctx.moveTo(tagX, tagY);
-    ctx.lineTo(tagX + tagW, tagY);
-    ctx.lineTo(tagX + tagW, tagY + tagH * 0.74);
-    ctx.lineTo(tagX + tagW * 0.5, tagY + tagH);
-    ctx.lineTo(tagX, tagY + tagH * 0.74);
-    ctx.closePath();
-    ctx.clip();
-
-    // Gold fill
-    const tagGrad = ctx.createLinearGradient(tagX, tagY, tagX + tagW, tagY + tagH);
-    tagGrad.addColorStop(0, '#FFF2CE');
-    tagGrad.addColorStop(0.4, '#DFB15B');
-    tagGrad.addColorStop(1, '#916922');
-    ctx.fillStyle = tagGrad;
-    ctx.fillRect(tagX, tagY, tagW, tagH);
-
-    // Inner background
-    ctx.beginPath();
-    ctx.moveTo(tagX + 2, tagY);
-    ctx.lineTo(tagX + tagW - 2, tagY);
-    ctx.lineTo(tagX + tagW - 2, tagY + tagH * 0.74 - 1);
-    ctx.lineTo(tagX + tagW * 0.5, tagY + tagH - 2);
-    ctx.lineTo(tagX + 2, tagY + tagH * 0.74 - 1);
-    ctx.closePath();
-    ctx.fillStyle = '#0A0B0E';
-    ctx.fill();
-
-    // Tag Crown & Texts
-    ctx.fillStyle = '#DFB15B';
-    ctx.font = '20px "Georgia", serif';
+    // Fan Name Label and text below
+    ctx.fillStyle = '#818B9C';
+    ctx.font = '800 11px "Inter", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('👑', tagX + tagW * 0.5, tagY + 28);
-    
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.font = '900 8px "Inter", sans-serif';
-    ctx.fillText('PLATINUM', tagX + tagW * 0.5, tagY + 44);
-
-    const bannerVIP = m.tierTitle?.toUpperCase()?.replace(' ACCESS', '')?.replace(' PLAN', '') || 'VIP';
-    const tagVIPPale = ctx.createLinearGradient(tagX, tagY + 54, tagX, tagY + 74);
-    tagVIPPale.addColorStop(0, '#FFFFFF');
-    tagVIPPale.addColorStop(1, '#DFB15B');
-    ctx.fillStyle = tagVIPPale;
-    ctx.font = '900 20px "Inter", sans-serif';
-    ctx.fillText(bannerVIP, tagX + tagW * 0.5, tagY + 65);
-
-    ctx.fillStyle = '#DFB15B';
-    ctx.font = '900 8px "Inter", sans-serif';
-    ctx.fillText('MEMBER', tagX + tagW * 0.5, tagY + 80);
-
-    ctx.restore();
-
-    // ==========================================
-    // VERIFIED MEDAL SEAL IN BOTTOM-RIGHT
-    // ==========================================
-    ctx.save();
-    const mx = fx + cw - 100;
-    const my = fy + ch - 100;
-    const mr = 50;
-
-    // Shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 15;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 6;
-
-    // Scalloped gold border
-    const medalGrad = ctx.createLinearGradient(mx - mr, my - mr, mx + mr, my + mr);
-    medalGrad.addColorStop(0, '#eddba1');
-    medalGrad.addColorStop(0.5, '#DFB15B');
-    medalGrad.addColorStop(1, '#916922');
-    ctx.fillStyle = medalGrad;
-    ctx.beginPath();
-    ctx.arc(mx, my, mr, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.shadowColor = 'transparent'; // Reset shadow
-
-    // Inner dark center
-    ctx.fillStyle = '#0A0D1F';
-    ctx.beginPath();
-    ctx.arc(mx, my, mr - 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Inner border lines dashed
-    ctx.strokeStyle = 'rgba(223, 177, 91, 0.35)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    ctx.arc(mx, my, mr - 7, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]); // Reset dash
-
-    // Text & stars inside the seal
-    ctx.fillStyle = '#DFB15B';
-    ctx.textAlign = 'center';
-    ctx.font = '12px "Georgia", serif';
-    ctx.fillText('👑', mx, my - 12);
-
-    ctx.fillStyle = '#DFB15B';
-    ctx.font = '900 10.5px "Inter", sans-serif';
-    ctx.fillText('VERIFIED', mx, my + 10);
+    ctx.fillText('VIP MEMBER', fanX + portraitW / 2, fanY + portraitH + 34);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 9px "Inter", sans-serif';
-    ctx.fillText('MEMBER', mx, my + 23);
+    ctx.font = '900 18px "Inter", sans-serif';
+    ctx.fillText((m.fanName || 'MEMBER').toUpperCase(), fanX + portraitW / 2, fanY + portraitH + 62);
 
-    // 3 small star flags
+    // ==========================================
+    // RIGHT SIDE: CELEBRITY PHOTO
+    // ==========================================
+    const celebX = fx + cw * 0.66;
+    const celebY = fy + ch * 0.14;
+
+    ctx.save();
+    ctx.fillStyle = '#0C1024';
+    drawRoundedRect(celebX, celebY, portraitW, portraitH, 20);
+    ctx.fill();
+    ctx.restore();
+
+    const celebPhotoSrc = celeb?.avatarUrl || celeb?.profileImage || m.celebPhotoUrl || m.celebAvatar;
+    if (celebPhotoSrc) {
+      try {
+        const cpimg = new Image();
+        cpimg.crossOrigin = 'anonymous';
+        cpimg.src = celebPhotoSrc;
+        await new Promise((resolve) => {
+          cpimg.onload = resolve;
+          cpimg.onerror = resolve;
+        });
+        ctx.save();
+        drawRoundedRect(celebX, celebY, portraitW, portraitH, 20);
+        ctx.clip();
+        
+        // Crop and draw
+        const cimgRatio = cpimg.width / cpimg.height;
+        let drawW = portraitW;
+        let drawH = portraitW / cimgRatio;
+        if (drawH < portraitH) {
+          drawH = portraitH;
+          drawW = portraitH * cimgRatio;
+        }
+        const dx = celebX + (portraitW - drawW) / 2;
+        const dy = celebY + (portraitH - drawH) / 2;
+        ctx.drawImage(cpimg, dx, dy, drawW, drawH);
+        
+        // Bottom overlay gradient on photo
+        const shadowGrad2 = ctx.createLinearGradient(celebX, celebY + portraitH * 0.7, celebX, celebY + portraitH);
+        shadowGrad2.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        shadowGrad2.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+        ctx.fillStyle = shadowGrad2;
+        ctx.fillRect(celebX, celebY, portraitW, portraitH);
+        
+        ctx.restore();
+      } catch (e) {
+        console.error('Failed to draw celeb photo on canvas:', e);
+      }
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      drawRoundedRect(celebX, celebY, portraitW, portraitH, 20);
+      ctx.fill();
+      ctx.fillStyle = '#DFB15B';
+      ctx.font = '28px "Georgia", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('👑', celebX + portraitW / 2, celebY + portraitH / 2 + 10);
+    }
+    // Draw gold outer stroke
+    strokeGoldBorder(celebX, celebY, portraitW, portraitH, 20, 2.5);
+
+    // Celebrity Name Label and text below
     ctx.fillStyle = '#DFB15B';
-    ctx.font = '10px "Inter", sans-serif';
-    ctx.fillText('★ ★ ★', mx, my + 38);
+    ctx.font = '800 11px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('APPROVED BY', celebX + portraitW / 2, celebY + portraitH + 34);
 
-    ctx.restore(); // restored global clip
+    const activeCelebNameLower = celeb?.celebName || m.celebName || 'Artist Official';
+    const textGold2 = ctx.createLinearGradient(celebX, celebY + portraitH + 45, celebX + portraitW, celebY + portraitH + 45);
+    textGold2.addColorStop(0, '#FFF2CE');
+    textGold2.addColorStop(1, '#DFB15B');
+    ctx.fillStyle = textGold2;
+    ctx.font = '900 18px "Inter", sans-serif';
+    ctx.fillText(activeCelebNameLower.toUpperCase(), celebX + portraitW / 2, celebY + portraitH + 62);
 
-    // Draw the overall gold outline for Card Front
+    // ==========================================
+    // CENTER SIDE: BRANDING, CHIP, BADGE
+    // ==========================================
+    const ccx = fx + cw * 0.5;
+    
+    // "BOOK A CELEBRITY™"
+    const textGoldCenter = ctx.createLinearGradient(ccx - 120, fy + 45, ccx + 120, fy + 45);
+    textGoldCenter.addColorStop(0, '#FDF0CE');
+    textGoldCenter.addColorStop(0.5, '#DFB15B');
+    textGoldCenter.addColorStop(1, '#A37B34');
+    ctx.fillStyle = textGoldCenter;
+    ctx.font = '900 21px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('BOOK A CELEBRITY™', ccx, fy + 58);
+
+    // "OFFICIAL VIP ACCESS PASS"
+    ctx.fillStyle = '#A5ABB8';
+    ctx.font = '800 10px "Inter", sans-serif';
+    ctx.fillText('OFFICIAL VIP ACCESS PASS', ccx, fy + 80);
+
+    // EMV Golden Chip (centered)
+    const chipClobX = ccx - 30;
+    const chipClobY = fy + ch * 0.22;
+    const chipW = 60;
+    const chipH = 40;
+    
+    const chipGradC = ctx.createLinearGradient(chipClobX, chipClobY, chipClobX + chipW, chipClobY);
+    chipGradC.addColorStop(0, '#edd393');
+    chipGradC.addColorStop(0.5, '#DFB15B');
+    chipGradC.addColorStop(1, '#b38530');
+    
+    ctx.fillStyle = chipGradC;
+    drawRoundedRect(chipClobX, chipClobY, chipW, chipH, 6);
+    ctx.fill();
+
+    // Chip details lines
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(chipClobX, chipClobY + chipH / 2);
+    ctx.lineTo(chipClobX + chipW, chipClobY + chipH / 2);
+    ctx.moveTo(chipClobX + chipW / 3, chipClobY);
+    ctx.lineTo(chipClobX + chipW / 3, chipClobY + chipH);
+    ctx.moveTo(chipClobX + (chipW * 2) / 3, chipClobY);
+    ctx.lineTo(chipClobX + (chipW * 2) / 3, chipClobY + chipH);
+    ctx.stroke();
+
+    // Wireless wave under chip
+    ctx.strokeStyle = '#DFB15B';
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    const wcX = ccx;
+    const wcY = chipClobY + chipH + 18;
+    ctx.beginPath(); ctx.arc(wcX - 8, wcY, 8, -Math.PI / 4, Math.PI / 4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(wcX - 5, wcY, 12, -Math.PI / 4, Math.PI / 4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(wcX - 2, wcY, 16, -Math.PI / 4, Math.PI / 4); ctx.stroke();
+
+    // Level Pill Badge (Symmetrical)
+    const pillY = fy + ch * 0.58;
+    const pillW = 190;
+    const pillH = 32;
+    
+    ctx.fillStyle = '#15192c';
+    ctx.strokeStyle = 'rgba(223, 177, 91, 0.35)';
+    ctx.lineWidth = 1.2;
+    drawRoundedRect(ccx - pillW / 2, pillY, pillW, pillH, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    const planLabelCenter = m.tierTitle?.toUpperCase()?.includes('PLAN') 
+      ? m.tierTitle.toUpperCase() 
+      : `${m.tierTitle?.toUpperCase() || 'GOLD'} PLAN`;
+
+    ctx.fillStyle = '#DFB15B';
+    ctx.font = '900 12.5px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('👑 ' + planLabelCenter, ccx, pillY + 21);
+
+    // Membership Card ID
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.font = 'bold 15px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(cardId, ccx, fy + ch * 0.75);
+
+    // Member Since
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.font = '900 10px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SINCE ' + jDateStr, ccx, fy + ch * 0.84);
+
+    ctx.restore(); // restored global cover clip
+
+    // Symmetrical outer gold border on Card Front
     strokeGoldBorder(fx, fy, cw, ch, 36, 4);
 
     ctx.restore(); // restored outer state
@@ -1149,6 +1038,7 @@ export const FanCardPage = () => {
                           membershipCardId={approvedMembership.membershipCardId || approvedMembership.id.substring(0, 12).toUpperCase()}
                           photoUrl={approvedMembership.photoUrl}
                           joinDate={approvedMembership.createdAt?.toDate ? approvedMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
+                          celebPhotoUrl={celeb?.avatarUrl || celeb?.profileImage || approvedMembership.celebPhotoUrl}
                         />
                       </div>
 
@@ -1229,6 +1119,7 @@ export const FanCardPage = () => {
                     membershipCardId={pendingMembership.membershipCardId || 'BAC-VIP-PENDING'}
                     photoUrl={pendingMembership.photoUrl}
                     joinDate={pendingMembership.createdAt?.toDate ? pendingMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
+                    celebPhotoUrl={celeb?.avatarUrl || celeb?.profileImage || pendingMembership.celebPhotoUrl}
                   />
                 </div>
               </div>
@@ -1506,6 +1397,7 @@ export const FanCardPage = () => {
                             membershipCardId={membershipCardId}
                             photoUrl={photoPreview || undefined}
                             joinDate={new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
+                            celebPhotoUrl={celeb?.avatarUrl || celeb?.profileImage}
                           />
                         </div>
                       </div>
