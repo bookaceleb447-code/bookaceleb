@@ -6,9 +6,6 @@ import { doc, onSnapshot, collection, query, where, getDocs, limit, updateDoc } 
 import { Crown, Heart, Calendar, CreditCard, MessageSquare, ListCheck, UserCircle, Star, Sparkles, Activity, ShieldCheck, ArrowUpRight, MapPin, Tag, LogOut, Menu, X, LifeBuoy, Home, PhoneCall, Instagram, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ChatWidget } from '../../components/ChatWidget';
-import { LanguageSelector } from '../../components/LanguageSelector';
-import { useLanguage } from '../../context/LanguageContext';
-import { TranslationSettings } from '../../components/TranslationSettings';
 
 export const UserDashboard = () => {
   const { user } = useAuth();
@@ -161,8 +158,7 @@ export const UserDashboard = () => {
               <p className="text-xs font-mono font-bold text-emerald-400">Escrow Securely Active</p>
             </div>
             <div className="h-10 w-px bg-white/10 hidden md:block" />
-            <div className="flex items-center gap-2 shrink-0">
-              <LanguageSelector />
+            <div className="flex gap-2 shrink-0">
               <button 
                 title="VIP Gate Menu" 
                 onClick={() => setIsMobileMenuOpen(true)}
@@ -470,11 +466,6 @@ export const UserDashboard = () => {
               )}
             </div>
           </motion.div>
-        </div>
-
-        {/* Translation Settings Section */}
-        <div className="mt-8 text-left">
-          <TranslationSettings />
         </div>
       </div>
 

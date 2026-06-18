@@ -5,11 +5,8 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { LanguageSelector } from '../components/LanguageSelector';
-import { useLanguage } from '../context/LanguageContext';
 
 export const LandingPage = () => {
-  const { t } = useLanguage();
   const [featuredCelebs, setFeaturedCelebs] = useState<any[]>([]);
   const [trendingCelebs, setTrendingCelebs] = useState<any[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -86,22 +83,18 @@ export const LandingPage = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="hidden md:flex items-center gap-4 animate-fade-in">
-          <LanguageSelector />
-          <Link to="/login" className="px-6 py-2.5 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest">{t('login')}</Link>
-          <Link to="/register" className="px-6 py-2.5 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/20">{t('register')}</Link>
+        <div className="hidden md:flex items-center gap-4">
+          <Link to="/login" className="px-6 py-2.5 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest">Login</Link>
+          <Link to="/register" className="px-6 py-2.5 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/20">Sign Up</Link>
         </div>
 
         {/* Hamburger - Mobile */}
-        <div className="flex md:hidden items-center gap-2">
-          <LanguageSelector />
-          <button 
-            onClick={() => setIsMenuOpen(!isMenuOpen)} 
-            className="p-3 border border-white/10 bg-white/5 rounded-2xl hover:bg-white/10 focus:outline-none transition-all"
-          >
-            {isMenuOpen ? <X size={20} className="text-primary" /> : <Menu size={20} />}
-          </button>
-        </div>
+        <button 
+          onClick={() => setIsMenuOpen(!isMenuOpen)} 
+          className="md:hidden p-3 border border-white/10 bg-white/5 rounded-2xl hover:bg-white/10 focus:outline-none transition-all"
+        >
+          {isMenuOpen ? <X size={20} className="text-primary" /> : <Menu size={20} />}
+        </button>
       </nav>
 
       {/* Hamburger Drawer Menu */}
@@ -129,8 +122,8 @@ export const LandingPage = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-4">
-              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-center text-sm font-bold uppercase tracking-wider">{t('login')}</Link>
-              <Link to="/register" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-center text-sm font-bold uppercase tracking-wider shadow-lg shadow-primary/10">{t('register')}</Link>
+              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-center text-sm font-bold uppercase tracking-wider">Fan Login</Link>
+              <Link to="/register" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-center text-sm font-bold uppercase tracking-wider shadow-lg shadow-primary/10">Fan Sign Up</Link>
             </div>
           </motion.div>
         )}
@@ -152,11 +145,12 @@ export const LandingPage = () => {
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-5xl md:text-8xl font-display font-bold leading-tight md:leading-none tracking-tight mb-8 text-white max-w-4xl uppercase"
+          className="text-5xl md:text-8xl font-display font-bold leading-tight md:leading-none tracking-tight mb-8 text-white max-w-4xl"
         >
-          {t('welcome_to_celeb')}
+          Meet Your Favorite <br />
+          <span className="text-primary italic neon-text uppercase tracking-tighter inline-block mt-2">Celebrity</span>
         </motion.h1>
-        
+
         {/* Subtext */}
         <motion.p 
           initial={{ opacity: 0 }}
@@ -164,7 +158,7 @@ export const LandingPage = () => {
           transition={{ delay: 0.2 }}
           className="text-white/50 text-base md:text-xl max-w-2xl mb-12 font-medium leading-relaxed"
         >
-          {t('hero_descr')}
+          An ultra-premium, zero-middleman channel designed exclusively to request live consultation bookings, activate fan memberships, and directly support authentic charity projects.
         </motion.p>
 
         {/* Action button container */}

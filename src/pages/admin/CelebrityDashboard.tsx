@@ -18,9 +18,6 @@ import { BUILT_IN_TEMPLATES } from '../../lib/autoReply';
 import { checkAndExpireAiPremium, checkAndExpireCelebrity } from '../../lib/premiumCheck';
 import { ChatWidget } from '../../components/ChatWidget';
 import { Toast } from '../../components/Toast';
-import { LanguageSelector } from '../../components/LanguageSelector';
-import { useLanguage } from '../../context/LanguageContext';
-import { TranslationSettings } from '../../components/TranslationSettings';
 import { UploadCloud, Zap } from 'lucide-react';
 
 export const CelebrityDashboard = () => {
@@ -717,15 +714,12 @@ export const CelebrityDashboard = () => {
         <div className="text-xl font-display font-black tracking-tighter uppercase italic flex items-center gap-2">
           VIP PORTAL <span className="text-primary italic">COMMAND</span>
         </div>
-        <div className="flex items-center gap-2">
-          <LanguageSelector />
-          <button 
-            onClick={() => setIsMenuOpen(!isMenuOpen)} 
-            className="p-2.5 border border-white/10 bg-white/5 rounded-xl hover:bg-white/10 focus:outline-none"
-          >
-            {isMenuOpen ? <X size={20} className="text-primary" /> : <Menu size={20} />}
-          </button>
-        </div>
+        <button 
+          onClick={() => setIsMenuOpen(!isMenuOpen)} 
+          className="p-2.5 border border-white/10 bg-white/5 rounded-xl hover:bg-white/10 focus:outline-none"
+        >
+          {isMenuOpen ? <X size={20} className="text-primary" /> : <Menu size={20} />}
+        </button>
       </header>
 
       {/* Responsive Drawer Menu */}
@@ -825,9 +819,6 @@ export const CelebrityDashboard = () => {
         </div>
 
         <div className="pt-8 border-t border-white/5 space-y-4">
-          <div className="flex justify-center" id="desktop-celeb-language-selector">
-            <LanguageSelector />
-          </div>
           <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-2xl">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-primary/20 shrink-0">
                {celebData?.profilePic ? (
@@ -3101,53 +3092,48 @@ export const CelebrityDashboard = () => {
 
               {/* 11. Settings Tab */}
               {activeTab === 'settings' && !isLocked && (
-                <div className="space-y-8 max-w-xl">
-                  <div className="bg-slate-900/40 p-10 border border-white/5 rounded-[2.5rem] text-left text-sans space-y-6">
-                    <h3 className="text-xl font-bold uppercase tracking-widest text-white italic">Management Protocol</h3>
-                    <p className="text-xs text-white/45 leading-relaxed">Modify general display choices or toggle accessibility profiles here. All data flows securely inside state directories.</p>
-                    
-                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl flex justify-between items-center text-xs">
-                      <div>
-                        <p className="font-bold text-white">Hide Stage Profile temporarily</p>
-                        <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider mt-0.5">Locks you out of search grids temporarily</p>
-                      </div>
-                      <button 
-                        onClick={async () => {
-                          const nextHide = !celebData.isHidden;
-                          await setDoc(doc(db, 'celebrityProfiles', user!.uid), { isHidden: nextHide }, { merge: true });
-                          setCelebData({...celebData, isHidden: nextHide});
-                          triggerToast('Profile Visibility Updated Successfully');
-                        }}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                          celebData?.isHidden ? 'bg-red-540 bg-opacity-90 text-white font-black' : 'bg-primary text-black font-black'
-                        }`}
-                      >
-                        {celebData?.isHidden ? '★ Currently Hidden' : '☆ Currently Visible'}
-                      </button>
+                <div className="max-w-xl bg-slate-900/40 p-10 border border-white/5 rounded-[2.5rem] text-left text-sans space-y-6">
+                  <h3 className="text-xl font-bold uppercase tracking-widest text-white italic">Management Protocol</h3>
+                  <p className="text-xs text-white/45 leading-relaxed">Modify general display choices or toggle accessibility profiles here. All data flows securely inside state directories.</p>
+                  
+                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl flex justify-between items-center text-xs">
+                    <div>
+                      <p className="font-bold text-white">Hide Stage Profile temporarily</p>
+                      <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider mt-0.5">Locks you out of search grids temporarily</p>
                     </div>
-
-                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl flex justify-between items-center text-xs">
-                      <div>
-                        <p className="font-bold text-white">Grant AI Profile Access</p>
-                        <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider mt-0.5 leading-relaxed">Allows the smart reply AI assistant to securely read your booking profile, bio, membership rates, and payment methods to write highly personalized customer support replies.</p>
-                      </div>
-                      <button 
-                        onClick={async () => {
-                          const nextAi = !celebData?.aiProfileAccess;
-                          await setDoc(doc(db, 'celebrityProfiles', user!.uid), { aiProfileAccess: nextAi }, { merge: true });
-                          setCelebData({...celebData, aiProfileAccess: nextAi});
-                          triggerToast('AI Profile Access Settings Updated Successfully');
-                        }}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                          celebData?.aiProfileAccess ? 'bg-emerald-500 text-black font-black' : 'bg-slate-800 text-white/40'
-                        }`}
-                      >
-                        {celebData?.aiProfileAccess ? '★ Access Enabled' : '☆ Access Disabled'}
-                      </button>
-                    </div>
+                    <button 
+                      onClick={async () => {
+                        const nextHide = !celebData.isHidden;
+                        await setDoc(doc(db, 'celebrityProfiles', user!.uid), { isHidden: nextHide }, { merge: true });
+                        setCelebData({...celebData, isHidden: nextHide});
+                        triggerToast('Profile Visibility Updated Successfully');
+                      }}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                        celebData?.isHidden ? 'bg-red-540 bg-opacity-90 text-white font-black' : 'bg-primary text-black font-black'
+                      }`}
+                    >
+                      {celebData?.isHidden ? '★ Currently Hidden' : '☆ Currently Visible'}
+                    </button>
                   </div>
-                  <div>
-                    <TranslationSettings isCelebrity={true} />
+
+                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl flex justify-between items-center text-xs">
+                    <div>
+                      <p className="font-bold text-white">Grant AI Profile Access</p>
+                      <p className="text-[10px] text-white/30 font-bold uppercase tracking-wider mt-0.5 leading-relaxed">Allows the smart reply AI assistant to securely read your booking profile, bio, membership rates, and payment methods to write highly personalized customer support replies.</p>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        const nextAi = !celebData?.aiProfileAccess;
+                        await setDoc(doc(db, 'celebrityProfiles', user!.uid), { aiProfileAccess: nextAi }, { merge: true });
+                        setCelebData({...celebData, aiProfileAccess: nextAi});
+                        triggerToast('AI Profile Access Settings Updated Successfully');
+                      }}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                        celebData?.aiProfileAccess ? 'bg-emerald-500 text-black font-black' : 'bg-slate-800 text-white/40'
+                      }`}
+                    >
+                      {celebData?.aiProfileAccess ? '★ Access Enabled' : '☆ Access Disabled'}
+                    </button>
                   </div>
                 </div>
               )}
