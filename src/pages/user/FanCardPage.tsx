@@ -282,9 +282,22 @@ export const FanCardPage = () => {
       ? m.tierTitle.toUpperCase() 
       : `${m.tierTitle?.toUpperCase() || 'GOLD'} PLAN`;
 
-    // Background base canvas fill (very high end deep dark matte)
-    ctx.fillStyle = '#05060B';
+    // 1. Create a rich, luxurious studio vignette backdrop gradient
+    const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, height * 0.8);
+    bgGrad.addColorStop(0, '#16192b'); // lighter studio glow center
+    bgGrad.addColorStop(1, '#05060B'); // deep rich charcoal edges
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
+
+    // Subtle premium diagonal background grid lines for a presentation board feel
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+    ctx.lineWidth = 1;
+    for (let i = -height; i < width; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + height, height);
+      ctx.stroke();
+    }
 
     // Rounded rectangle drawing helper
     const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number) => {
@@ -323,6 +336,17 @@ export const FanCardPage = () => {
     const fy = 30;
     const cw = width - 60; // 940 width
     const ch = cardHeight; // 630 height
+
+    // Front Card Drop Shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+    ctx.shadowBlur = 35;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 15;
+    ctx.fillStyle = '#05060B'; // solid fill to cast shadow
+    drawRoundedRect(fx, fy, cw, ch, 36);
+    ctx.fill();
+    ctx.restore();
 
     ctx.save();
     
@@ -442,7 +466,7 @@ export const FanCardPage = () => {
     ctx.fill();
     ctx.restore();
 
-    const celebPhotoSrc = celeb?.avatarUrl || celeb?.profileImage || m.celebPhotoUrl || m.celebAvatar;
+    const celebPhotoSrc = celeb?.profilePic || celeb?.avatarUrl || celeb?.profileImage || m.celebPhotoUrl || m.celebAvatar;
     if (celebPhotoSrc) {
       try {
         const cpimg = new Image();
@@ -607,6 +631,17 @@ export const FanCardPage = () => {
     // ====================================================================
     const bx = 30;
     const by = 30 + cardHeight + gap; // 30 + 630 + 60 = 720
+
+    // Back Card Drop Shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+    ctx.shadowBlur = 35;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 15;
+    ctx.fillStyle = '#07080F'; // solid fill to cast shadow
+    drawRoundedRect(bx, by, cw, ch, 36);
+    ctx.fill();
+    ctx.restore();
 
     ctx.save();
     // Clip to rounded rect boundaries of Card Back
@@ -1038,7 +1073,7 @@ export const FanCardPage = () => {
                           membershipCardId={approvedMembership.membershipCardId || approvedMembership.id.substring(0, 12).toUpperCase()}
                           photoUrl={approvedMembership.photoUrl}
                           joinDate={approvedMembership.createdAt?.toDate ? approvedMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
-                          celebPhotoUrl={celeb?.avatarUrl || celeb?.profileImage || approvedMembership.celebPhotoUrl}
+                          celebPhotoUrl={celeb?.profilePic || celeb?.avatarUrl || celeb?.profileImage || approvedMembership.celebPhotoUrl}
                         />
                       </div>
 
@@ -1119,7 +1154,7 @@ export const FanCardPage = () => {
                     membershipCardId={pendingMembership.membershipCardId || 'BAC-VIP-PENDING'}
                     photoUrl={pendingMembership.photoUrl}
                     joinDate={pendingMembership.createdAt?.toDate ? pendingMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase() : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
-                    celebPhotoUrl={celeb?.avatarUrl || celeb?.profileImage || pendingMembership.celebPhotoUrl}
+                    celebPhotoUrl={celeb?.profilePic || celeb?.avatarUrl || celeb?.profileImage || pendingMembership.celebPhotoUrl}
                   />
                 </div>
               </div>
@@ -1397,7 +1432,7 @@ export const FanCardPage = () => {
                             membershipCardId={membershipCardId}
                             photoUrl={photoPreview || undefined}
                             joinDate={new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}).toUpperCase()}
-                            celebPhotoUrl={celeb?.avatarUrl || celeb?.profileImage}
+                            celebPhotoUrl={celeb?.profilePic || celeb?.avatarUrl || celeb?.profileImage}
                           />
                         </div>
                       </div>
