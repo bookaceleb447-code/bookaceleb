@@ -6,6 +6,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ScrollToTop } from './components/ScrollToTop';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -78,63 +79,65 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <ScrollToTop />
-        <Suspense fallback={<ModuleLoader />}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/ref/:slug/:celebName" element={<ReferralHandler />} />
-            
-            {/* User Routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <UserDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/book/:celebId" element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <BookingPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/donate/:celebId" element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <DonationPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/fan-card/:celebId" element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <FanCardPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/contact-celebrity/:celebId" element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <ContactCelebrityPage />
-              </ProtectedRoute>
-            } />
+      <LanguageProvider>
+        <BrowserRouter>
+          <ScrollToTop />
+          <Suspense fallback={<ModuleLoader />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/ref/:slug/:celebName" element={<ReferralHandler />} />
+              
+              {/* User Routes */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute allowedRoles={['user']}>
+                  <UserDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/book/:celebId" element={
+                <ProtectedRoute allowedRoles={['user']}>
+                  <BookingPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/donate/:celebId" element={
+                <ProtectedRoute allowedRoles={['user']}>
+                  <DonationPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/fan-card/:celebId" element={
+                <ProtectedRoute allowedRoles={['user']}>
+                  <FanCardPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/contact-celebrity/:celebId" element={
+                <ProtectedRoute allowedRoles={['user']}>
+                  <ContactCelebrityPage />
+                </ProtectedRoute>
+              } />
 
-            {/* Celeb Admin Routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={['celebrity']}>
-                <CelebrityDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/login" element={<LoginPage forceRole="celebrity" />} />
-            <Route path="/admin/register" element={<CelebrityRegisterPage />} />
+              {/* Celeb Admin Routes */}
+              <Route path="/admin" element={
+                <ProtectedRoute allowedRoles={['celebrity']}>
+                  <CelebrityDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/login" element={<LoginPage forceRole="celebrity" />} />
+              <Route path="/admin/register" element={<CelebrityRegisterPage />} />
 
-            {/* Super Admin Routes */}
-            <Route path="/super-admin" element={
-              <ProtectedRoute allowedRoles={['superadmin']}>
-                <SuperAdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/super-admin/login" element={<LoginPage forceRole="superadmin" />} />
+              {/* Super Admin Routes */}
+              <Route path="/super-admin" element={
+                <ProtectedRoute allowedRoles={['superadmin']}>
+                  <SuperAdminDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/super-admin/login" element={<LoginPage forceRole="superadmin" />} />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </LanguageProvider>
     </AuthProvider>
   );
 }
