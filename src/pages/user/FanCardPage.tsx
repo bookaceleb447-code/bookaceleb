@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { doc, onSnapshot, getDoc, addDoc, collection, serverTimestamp, query, where, setDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { uploadToCloudinary } from '../../lib/cloudinary';
 import { motion, AnimatePresence } from 'motion/react';
 import { CelebrityHeader, FAQSection } from '../../components/CelebrityLayout';
@@ -37,6 +38,7 @@ const MEMBERSHIP_TIERS = [
 export const FanCardPage = () => {
   const { celebId } = useParams();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   // Celebrity info

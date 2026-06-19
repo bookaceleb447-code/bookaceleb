@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { auth, db, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { doc, onSnapshot, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
 import { Crown, Heart, Calendar, CreditCard, MessageSquare, ListCheck, UserCircle, Star, Sparkles, Activity, ShieldCheck, ArrowUpRight, MapPin, Tag, LogOut, Menu, X, LifeBuoy, Home, PhoneCall, Instagram, Send } from 'lucide-react';
@@ -9,6 +10,7 @@ import { ChatWidget } from '../../components/ChatWidget';
 
 export const UserDashboard = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [celeb, setCeleb] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
   const [donations, setDonations] = useState<any[]>([]);
@@ -144,7 +146,7 @@ export const UserDashboard = () => {
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-black tracking-tight uppercase italic text-white flex items-center gap-3">
-              My Premium Atrium
+              {t('dashboard.vipTitle')}
             </h1>
             <p className="text-white/40 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-1 flex flex-wrap items-center gap-1 max-w-full">
               <span>Verified Fan Profile Key:</span> 
@@ -232,20 +234,20 @@ export const UserDashboard = () => {
                       to={`/book/${celeb.id}`} 
                       className="h-11 bg-primary hover:bg-primary/95 text-black rounded-xl font-bold flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-lg hover:shadow-primary/10 uppercase text-[10px] tracking-widest text-center"
                     >
-                      <Calendar size={13}/> Book Now
+                      <Calendar size={13}/> {t('dashboard.bookText')}
                     </Link>
                     <Link 
                       to={`/donate/${celeb.id}`} 
                       className="h-11 bg-primary hover:bg-primary/90 text-black rounded-xl font-bold flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-lg hover:shadow-primary/10 transition-all uppercase text-[10px] tracking-widest text-center"
                     >
-                      <Heart size={13}/> Donate
+                      <Heart size={13}/> {t('dashboard.donateText')}
                     </Link>
                   </div>
                   <Link 
                     to={`/fan-card/${celeb.id}`} 
                     className="h-11 w-full border border-white/10 hover:bg-white/5 hover:border-white/20 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-[0.99] transition-all uppercase text-[10px] tracking-widest text-center"
                   >
-                    <CreditCard size={13}/> Fan Card
+                    <CreditCard size={13}/> {t('dashboard.managePass')}
                   </Link>
                 </div>
               </div>

@@ -6,12 +6,14 @@ import { auth, db } from '../../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getFriendlyLoginError } from '../../lib/authErrors';
 import { AuthLockScreen } from '../../components/AuthLockScreen';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface LoginPageProps {
   forceRole?: 'celebrity' | 'superadmin' | 'user' | 'fan';
 }
 
 export const LoginPage = ({ forceRole }: LoginPageProps) => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -189,9 +191,9 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
             BOOK A <span className="text-primary uppercase underline underline-offset-4 decoration-primary/40">Celeb</span>
           </Link>
           <h1 className="text-3xl font-display font-bold mb-2 text-white italic uppercase tracking-tight">
-            {forceRole === 'superadmin' ? 'Elite Control' : forceRole === 'celebrity' ? 'Celebrity Access' : 'Fan Login'}
+            {forceRole === 'superadmin' ? 'Elite Control' : forceRole === 'celebrity' ? 'Celebrity Access' : t('auth.loginTitle')}
           </h1>
-          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider">Welcome back to the premium circle</p>
+          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider">{t('auth.loginSubtitle')}</p>
         </div>
 
         {!forceRole && referredCelebName && (
@@ -205,7 +207,7 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
 
         <form onSubmit={handleLogin} className="space-y-6 text-left">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest mb-2 opacity-60 text-slate-300">Email Address</label>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-2 opacity-60 text-slate-300">{t('auth.emailLabel')}</label>
             <input 
               type="email" 
               value={email}
@@ -216,7 +218,7 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
             />
           </div>
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest mb-2 opacity-60 text-slate-300">Security Password</label>
+            <label className="block text-[10px] font-black uppercase tracking-widest mb-2 opacity-60 text-slate-300">{t('auth.passwordLabel')}</label>
             <input 
               type="password" 
               value={password}
@@ -238,7 +240,7 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
             disabled={loading}
             className="w-full py-5 bg-primary text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-[1.01] transition-all disabled:opacity-50 shadow-primary/10"
           >
-            {loading ? 'Authenticating Credentials...' : 'Sign In Now'}
+            {loading ? t('common.loading') : t('nav.login')}
           </button>
         </form>
 
@@ -255,7 +257,7 @@ export const LoginPage = ({ forceRole }: LoginPageProps) => {
         ) : (
           <div className="mt-8 text-center border-t border-white/5 pt-6 text-sm">
             <p className="text-white/30 font-medium text-xs">
-              Don't possess a fan profile yet? <Link to="/register" className="text-primary hover:underline font-extrabold uppercase ml-1">Sign Up</Link>
+              {t('auth.dontHaveAccount')} <Link to="/register" className="text-primary hover:underline font-extrabold uppercase ml-1">{t('nav.signUp')}</Link>
             </p>
           </div>
         )}

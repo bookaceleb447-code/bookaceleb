@@ -5,8 +5,10 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export const LandingPage = () => {
+  const { t, lang } = useLanguage();
   const [featuredCelebs, setFeaturedCelebs] = useState<any[]>([]);
   const [trendingCelebs, setTrendingCelebs] = useState<any[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -77,15 +79,15 @@ export const LandingPage = () => {
         
         {/* Desktop Links */}
         <div className="hidden md:flex gap-10 font-bold text-xs uppercase tracking-widest text-white/60">
-          <a href="#featured" className="hover:text-primary transition-all">Featured</a>
-          <a href="#trending" className="hover:text-primary transition-all">Trending</a>
-          <a href="#stats" className="hover:text-primary transition-all">Metrics</a>
+          <a href="#featured" className="hover:text-primary transition-all">{t('nav.featured')}</a>
+          <a href="#trending" className="hover:text-primary transition-all">{t('nav.trending')}</a>
+          <a href="#stats" className="hover:text-primary transition-all">{t('nav.metrics')}</a>
         </div>
 
         {/* Action Buttons */}
         <div className="hidden md:flex items-center gap-4">
-          <Link to="/login" className="px-6 py-2.5 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest">Login</Link>
-          <Link to="/register" className="px-6 py-2.5 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/20">Sign Up</Link>
+          <Link to="/login" className="px-6 py-2.5 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest">{t('nav.login')}</Link>
+          <Link to="/register" className="px-6 py-2.5 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/20">{t('nav.signUp')}</Link>
         </div>
 
         {/* Hamburger - Mobile */}
@@ -108,22 +110,22 @@ export const LandingPage = () => {
           >
             <div className="flex flex-col gap-4">
               <a href="#featured" onClick={() => setIsMenuOpen(false)} className="py-3 border-b border-white/5 text-lg font-bold tracking-tight hover:text-primary transition-all flex justify-between items-center">
-                <span>Featured Celebrities</span>
+                <span>{t('nav.featured')}</span>
                 <ChevronRight size={16} />
               </a>
               <a href="#trending" onClick={() => setIsMenuOpen(false)} className="py-3 border-b border-white/5 text-lg font-bold tracking-tight hover:text-primary transition-all flex justify-between items-center">
-                <span>Trending Icons</span>
+                <span>{t('nav.trending')}</span>
                 <ChevronRight size={16} />
               </a>
               <a href="#stats" onClick={() => setIsMenuOpen(false)} className="py-3 border-b border-white/5 text-lg font-bold tracking-tight hover:text-primary transition-all flex justify-between items-center">
-                <span>Platform Metrics</span>
+                <span>{t('nav.metrics')}</span>
                 <ChevronRight size={16} />
               </a>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-4">
-              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-center text-sm font-bold uppercase tracking-wider">Fan Login</Link>
-              <Link to="/register" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-center text-sm font-bold uppercase tracking-wider shadow-lg shadow-primary/10">Fan Sign Up</Link>
+              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl border border-white/10 hover:bg-white/5 transition-all text-center text-sm font-bold uppercase tracking-wider">{t('nav.login')}</Link>
+              <Link to="/register" onClick={() => setIsMenuOpen(false)} className="py-4 rounded-2xl bg-primary text-black hover:scale-105 transition-all text-center text-sm font-bold uppercase tracking-wider shadow-lg shadow-primary/10">{t('nav.signUp')}</Link>
             </div>
           </motion.div>
         )}
@@ -137,7 +139,7 @@ export const LandingPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-[10px] uppercase tracking-[0.25em] mb-10 shadow-xl shadow-primary/5"
         >
-          <Award size={12} className="animate-spin duration-10000" /> Elite Global Connectivity Protocol
+          <Award size={12} className="animate-spin duration-10000" /> {t('hero.badge')}
         </motion.div>
 
         {/* Title */}
@@ -147,8 +149,8 @@ export const LandingPage = () => {
           transition={{ delay: 0.1 }}
           className="text-5xl md:text-8xl font-display font-bold leading-tight md:leading-none tracking-tight mb-8 text-white max-w-4xl"
         >
-          Meet Your Favorite <br />
-          <span className="text-primary italic neon-text uppercase tracking-tighter inline-block mt-2">Celebrity</span>
+          {t('hero.titleLine1')} <br />
+          <span className="text-primary italic neon-text uppercase tracking-tighter inline-block mt-2">{t('hero.titleLine2')}</span>
         </motion.h1>
 
         {/* Subtext */}
@@ -158,7 +160,7 @@ export const LandingPage = () => {
           transition={{ delay: 0.2 }}
           className="text-white/50 text-base md:text-xl max-w-2xl mb-12 font-medium leading-relaxed"
         >
-          An ultra-premium, zero-middleman channel designed exclusively to request live consultation bookings, activate fan memberships, and directly support authentic charity projects.
+          {t('hero.subtitle')}
         </motion.p>
 
         {/* Action button container */}
@@ -169,10 +171,10 @@ export const LandingPage = () => {
           className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto items-center justify-center relative mt-2"
         >
           <Link to="/register" className="w-full sm:w-auto px-12 py-5 bg-primary text-black rounded-3xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-2xl shadow-primary/20">
-            Start Booking <ChevronRight size={18} />
+            {t('hero.ctaBook')} <ChevronRight size={18} />
           </Link>
           <a href="#featured" className="w-full sm:w-auto px-12 py-5 border border-white/10 hover:border-white/25 rounded-3xl font-bold text-sm uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-2 backdrop-blur-3xl bg-slate-900/40">
-            Explore Celebrities
+            {t('hero.ctaExplore')}
           </a>
         </motion.div>
       </section>
