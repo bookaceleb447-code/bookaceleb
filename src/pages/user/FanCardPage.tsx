@@ -258,10 +258,10 @@ export const FanCardPage = () => {
     
     // Create standard high-resolution size canvas
     const canvas = document.createElement('canvas');
-    const width = 1000;
-    const cardHeight = 630;
-    const gap = 60;
-    const height = (cardHeight * 2) + (gap * 2); // 1380px total height
+    const width = 1010;
+    const cardHeight = 600;
+    const gap = 50;
+    const height = (cardHeight * 2) + gap + 60; // 30px top/bottom margins, 50px gap = 1310px total height
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
