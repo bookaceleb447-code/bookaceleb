@@ -141,8 +141,10 @@ function validateFirebaseAdminCredentials() {
     console.error("   - FIREBASE_PRIVATE_KEY  : Paste the entire BEGIN...END block. Vercel preserves multiline keys perfectly.");
     console.error("=================================================================================\n");
 
-    // Prevent application startup if Firebase Admin credentials are incomplete
-    throw new Error(`[STARTUP_FAIL] Incomplete Firebase Credentials: ${errors.join(" | ")}`);
+    // Enable fallback mode instead of crashing startup when running on Vercel/Production
+    console.warn("\n📻 [FALLBACK SYSTEM ACTIVE] Startup proceeding without full Admin SDK credentials.");
+    console.warn("   The application will seamlessly fall back to REST-based Firebase transactions using end-user Bearer tokens.");
+    console.warn("=================================================================================\n");
   } else {
     console.log("🛰️ [DATABASE_VALIDATOR] Credentials validated and ready.");
   }

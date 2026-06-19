@@ -172,118 +172,6 @@ export const CelebrityDashboard = () => {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStep, setAiStep] = useState<'confirm' | 'suggestions' | 'cooldown'>('confirm');
 
-  // Self‑hosted LibreTranslate translation states
-  const [translateServerUrl, setTranslateServerUrl] = useState(() => localStorage.getItem('translate_server_url') || 'http://localhost:5000');
-  const [translateApiKey, setTranslateApiKey] = useState(() => localStorage.getItem('translate_api_key') || '');
-  const [translatePreferredLang, setTranslatePreferredLang] = useState(() => localStorage.getItem('translate_preferred_lang') || 'en');
-  const [sendTranslationLang, setSendTranslationLang] = useState('original');
-  const [isTranslatingSend, setIsTranslatingSend] = useState(false);
-  const [showTranslateSettings, setShowTranslateSettings] = useState(false);
-  const [translationPopup, setTranslationPopup] = useState<{ msgId: string, text: string, x: number, y: number } | null>(null);
-  const [translatedTextCache, setTranslatedTextCache] = useState<{ [msgId: string]: string }>({});
-  const [showTranslationState, setShowTranslationState] = useState<{ [msgId: string]: boolean }>({});
-  const [isActiveTranslating, setIsActiveTranslating] = useState<{ [msgId: string]: boolean }>({});
-
-  const translateTextSecure = async (
-    text: string,
-    targetLang: string,
-    sourceLang: string = 'auto',
-    config: { serverUrl: string, apiKey?: string }
-  ): Promise<string> => {
-    try {
-      const url = `${config.serverUrl.trim().replace(/\/$/, '')}/translate`;
-      const body: any = {
-        q: text,
-        source: sourceLang,
-        target: targetLang,
-        format: 'text'
-      };
-      if (config.apiKey && config.apiKey.trim()) {
-        body.api_key = config.apiKey.trim();
-      }
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!res.ok) {
-        throw new Error(`LibreTranslate HTTP Error ${res.status}`);
-      }
-      const data = await res.json();
-      if (data && data.translatedText) {
-        return data.translatedText;
-      }
-      throw new Error('Invalid translation response payload');
-    } catch (error: any) {
-      console.warn("LibreTranslate server connection failed or unreachable. Running demo mock transition fallback.", error);
-      // Simulate 500ms delay for development/testing mock fallback
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return `[Translated to ${targetLang.toUpperCase()}]: ${text}`;
-    }
-  };
-
-  // Double-tap and Double-click message translation handler
-  const handleMessageTapOrClick = (msg: any, event: any) => {
-    // Only translate incoming fan messages (sender ID !== current celebrity ID)
-    const isMe = msg.senderId === user?.uid;
-    if (isMe) return;
-
-    const now = Date.now();
-    const DOUBLE_PRESS_DELAY = 300; // standard maximum time gap for double touch gesture
-    
-    const isDoubleClick = event.type === 'doubleclick';
-    const isDoubleTap = event.type === 'touchend' && (now - (window as any).lastMsgTapTime < DOUBLE_PRESS_DELAY) && ((window as any).lastMsgTapId === msg.id);
-
-    if (event.type === 'touchend') {
-      (window as any).lastMsgTapTime = now;
-      (window as any).lastMsgTapId = msg.id;
-    }
-
-    if (isDoubleClick || isDoubleTap) {
-      event.preventDefault();
-      setTranslationPopup({
-        msgId: msg.id,
-        text: msg.text,
-        x: event.clientX || 0,
-        y: event.clientY || 0
-      });
-    }
-  };
-
-  const LANGUAGE_NAMES: { [key: string]: string } = {
-    en: 'English',
-    fr: 'French',
-    es: 'Spanish',
-    de: 'German',
-    it: 'Italian',
-    pt: 'Portuguese',
-    ar: 'Arabic'
-  };
-
-  const handleExecuteTranslation = async (msgId: string, text: string, targetLang: string) => {
-    setTranslationPopup(null);
-    setIsActiveTranslating(prev => ({ ...prev, [msgId]: true }));
-    try {
-      const translation = await translateTextSecure(
-        text,
-        targetLang,
-        'auto',
-        { serverUrl: translateServerUrl, apiKey: translateApiKey }
-      );
-      setTranslatedTextCache(prev => ({ ...prev, [msgId]: translation }));
-      setShowTranslationState(prev => ({ ...prev, [msgId]: true }));
-    } catch (err) {
-      console.error(err);
-      triggerToast("Translation attempt failed. Please check your config parameters.");
-    } finally {
-      setIsActiveTranslating(prev => ({ ...prev, [msgId]: false }));
-    }
-  };
-
   // Automatic Reply System States
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [autoReplySelectedFans, setAutoReplySelectedFans] = useState<string[]>([]);
@@ -2124,27 +2012,10 @@ export const CelebrityDashboard = () => {
               {/* 9. Chats / Messages Tab */}
               {activeTab === 'chats' && !isLocked && (() => {
                 const handleChatSendMessage = async (e?: React.FormEvent) => {
-                  if (!activeNewMessage.trim() || !user || !chatTarget || isTranslatingSend) return;
+                  if (!activeNewMessage.trim() || !user || !chatTarget) return;
                   e?.preventDefault();
                   
                   const text = activeNewMessage;
-                  let finalMessageText = text;
-
-                  if (sendTranslationLang !== 'original') {
-                    setIsTranslatingSend(true);
-                    try {
-                      finalMessageText = await translateTextSecure(text, sendTranslationLang, 'auto', {
-                        serverUrl: translateServerUrl,
-                        apiKey: translateApiKey
-                      });
-                    } catch (err: any) {
-                      console.error('Send message translation failed, defaulting to original:', err);
-                      triggerToast(`Could not translate message. Sending original. Error: ${err.message || 'Server connection failed'}`);
-                    } finally {
-                      setIsTranslatingSend(false);
-                    }
-                  }
-
                   setActiveNewMessage('');
                   setAiSuggestions([]);
                   setAiStep('confirm');
@@ -2157,13 +2028,13 @@ export const CelebrityDashboard = () => {
 
                     await addDoc(collection(db, `chats/${chatTarget.id}/messages`), {
                       senderId: user.uid,
-                      text: finalMessageText,
+                      text: text,
                       timestamp: serverTimestamp(),
                       seen: false
                     });
 
                     await setDoc(doc(db, 'chats', chatTarget.id), {
-                      lastMessage: finalMessageText,
+                      lastMessage: text,
                       lastTimestamp: serverTimestamp()
                     }, { merge: true });
                   } catch (err) {
@@ -2540,66 +2411,21 @@ export const CelebrityDashboard = () => {
                                       AI Assist Smart Reply
                                     </span>
                                   </button>
-
-                                  {/* Self‑hosted Translation Config Settings Gear Icon */}
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowTranslateSettings(true)}
-                                    title="Translation Setup"
-                                    className="p-2.5 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 text-white/75 hover:text-white hover:bg-white/10 transition-all duration-300 active:scale-95 cursor-pointer relative group"
-                                  >
-                                    <Settings size={14} className="group-hover:rotate-45 transition-transform" />
-                                    <span className="absolute right-0 bottom-full mb-2 hidden group-hover:inline-block bg-black/90 border border-white/10 text-[9px] font-black uppercase tracking-wider text-primary px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-xl z-20">
-                                      Translation Setup
-                                    </span>
-                                  </button>
                                 </div>
                               </div>
- 
+
                               {/* Conversations Stream */}
                               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-900/10">
                                 {activeMessages.map((msg, i) => {
                                   const isMe = msg.senderId === user.uid;
                                   return (
                                     <div key={msg.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                      <div 
-                                        onDoubleClick={(e) => handleMessageTapOrClick(msg, e)}
-                                        onTouchEnd={(e) => handleMessageTapOrClick(msg, e)}
-                                        className={`max-w-[80%] p-4 rounded-xl text-xs font-semibold leading-relaxed shadow-sm text-left relative cursor-pointer select-none transition-all ${
-                                          isMe
-                                            ? 'bg-primary text-black rounded-tr-none'
-                                            : 'bg-white/5 text-white rounded-tl-none border border-white/5 hover:border-white/10'
-                                        }`}
-                                        title={!isMe ? "Double-click / double-tap to translate" : undefined}
-                                      >
-                                        {msg.text && (
-                                          <div className="space-y-1.5">
-                                            {isActiveTranslating[msg.id] ? (
-                                              <div className="flex items-center gap-1.5 text-[11px] text-[#dfb15b] font-bold animate-pulse">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-[#dfb15b] animate-ping" />
-                                                <span>Translating...</span>
-                                              </div>
-                                            ) : translatedTextCache[msg.id] ? (
-                                              <div className="space-y-1">
-                                                <p className={`break-words font-medium text-xs ${isMe ? 'text-black' : 'text-white'}`}>
-                                                  {showTranslationState[msg.id] ? translatedTextCache[msg.id] : msg.text}
-                                                </p>
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setShowTranslationState(prev => ({ ...prev, [msg.id]: !prev[msg.id] }));
-                                                  }}
-                                                  className={`text-[9.5px] font-black uppercase tracking-widest block pt-1 hover:underline cursor-pointer ${isMe ? 'text-black/70 hover:text-black' : 'text-primary'}`}
-                                                >
-                                                  {showTranslationState[msg.id] ? "Show Original" : "Show Translation"}
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <p className={`break-words font-medium text-xs ${isMe ? 'text-black' : 'text-white'}`}>{msg.text}</p>
-                                            )}
-                                          </div>
-                                        )}
+                                      <div className={`max-w-[80%] p-4 rounded-xl text-xs font-semibold leading-relaxed shadow-sm text-left ${
+                                        isMe
+                                          ? 'bg-primary text-black rounded-tr-none'
+                                          : 'bg-white/5 text-white rounded-tl-none border border-white/5'
+                                      }`}>
+                                        {msg.text && <p className="break-words font-medium">{msg.text}</p>}
                                         {msg.mediaUrl && <img src={msg.mediaUrl} className="mt-2 rounded-lg max-h-40 w-full object-cover" referrerPolicy="no-referrer" />}
                                         <div className={`text-[7.5px] mt-1.5 uppercase font-black tracking-widest opacity-60 flex items-center gap-1 ${isMe ? 'text-black' : 'text-white'}`}>
                                           <span>{msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}</span>
@@ -2613,7 +2439,7 @@ export const CelebrityDashboard = () => {
                                     </div>
                                   );
                                 })}
- 
+
                                 {activeTargetTyping && (
                                   <div className="flex justify-start">
                                     <div className="bg-white/5 border border-white/5 text-primary text-[9px] font-black uppercase tracking-wider py-2 px-3.5 rounded-xl rounded-tl-none flex items-center gap-1.5">
@@ -2625,213 +2451,28 @@ export const CelebrityDashboard = () => {
                                   </div>
                                 )}
                               </div>
- 
+
                               {/* Inputs segment */}
-                              <div className="bg-white/[0.01] border-t border-white/5 p-4 space-y-3">
-                                {/* Send Language Option Selector Row */}
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[9px] uppercase font-black text-white/45 tracking-wider">Send Translate Mode:</span>
-                                  <select
-                                    value={sendTranslationLang}
-                                    onChange={(e) => setSendTranslationLang(e.target.value)}
-                                    className="bg-black/50 border border-white/10 rounded-lg px-2.5 py-1 text-[10px] font-bold text-primary outline-none focus:border-primary/50 transition-all cursor-pointer uppercase tracking-wider"
-                                  >
-                                    <option value="original">Original Text (No Translation)</option>
-                                    <option value="fr">French (FR)</option>
-                                    <option value="es">Spanish (ES)</option>
-                                    <option value="de">German (DE)</option>
-                                    <option value="it">Italian (IT)</option>
-                                    <option value="pt">Portuguese (PT)</option>
-                                  </select>
-                                </div>
-
-                                <form onSubmit={handleChatSendMessage} className="flex gap-2 items-center">
-                                  <label className="h-11 w-11 bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center cursor-pointer shrink-0 transition-all animate-fadeIn">
-                                    <Send size={15} className="rotate-[-45deg] scale-x-[-1]" />
-                                    <input type="file" className="hidden" accept="image/*" disabled={activeUploading} onChange={handleChatImageUpload} />
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={activeNewMessage}
-                                    onChange={e => handleChatInputChange(e.target.value)}
-                                    placeholder="Type verified response..."
-                                    className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-semibold text-white outline-none focus:border-primary/50"
-                                  />
-                                  <button
-                                    type="submit"
-                                    disabled={activeUploading || isTranslatingSend}
-                                    className="h-11 px-3 sm:px-5 bg-primary text-black rounded-xl font-black text-[10px] uppercase tracking-wider hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 hover:shadow-primary/20 disabled:opacity-55 shrink-0"
-                                  >
-                                    {isTranslatingSend ? (
-                                      <>
-                                        <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-slate-900 border-t-transparent" />
-                                        <span>Translating...</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <span className="hidden sm:inline">Send</span> <Send size={12} />
-                                      </>
-                                    )}
-                                  </button>
-                                </form>
-                              </div>
-
-                              {/* Translation Options Popup overlay */}
-                              {translationPopup && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setTranslationPopup(null)} />
-                                  <div className="relative bg-slate-900 border border-white/10 p-5 rounded-2xl max-w-xs w-full shadow-2xl space-y-4 text-left animate-fadeIn">
-                                    <h4 className="text-xs font-black uppercase text-primary tracking-wider flex items-center gap-1.5">
-                                      <Globe size={12} /> Translate Message
-                                    </h4>
-                                    <p className="text-[10px] text-white/50 italic truncate">"{translationPopup.text}"</p>
-                                    
-                                    <div className="flex flex-col gap-2">
-                                      <button
-                                        onClick={() => handleExecuteTranslation(translationPopup.msgId, translationPopup.text, 'en')}
-                                        className="w-full py-2.5 px-4 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl text-left text-xs font-bold transition-all text-white flex items-center justify-between cursor-pointer"
-                                      >
-                                        <span>Translate to English</span>
-                                        <span className="text-[9px] opacity-40 uppercase font-mono">EN</span>
-                                      </button>
-                                      {translatePreferredLang !== 'en' && (
-                                        <button
-                                          onClick={() => handleExecuteTranslation(translationPopup.msgId, translationPopup.text, translatePreferredLang)}
-                                          className="w-full py-2.5 px-4 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl text-left text-xs font-bold transition-all text-white flex items-center justify-between cursor-pointer"
-                                        >
-                                          <span>Translate to {LANGUAGE_NAMES[translatePreferredLang] || translatePreferredLang}</span>
-                                          <span className="text-[9px] opacity-40 uppercase font-mono">{translatePreferredLang.toUpperCase()}</span>
-                                        </button>
-                                      )}
-                                    </div>
-                                    <button
-                                      onClick={() => setTranslationPopup(null)}
-                                      className="w-full py-2 bg-white/5 text-white/40 hover:bg-white/10 rounded-xl text-center text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Self‑hosted Translation Config Settings Modal */}
-                              {showTranslateSettings && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-sans">
-                                  <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={() => setShowTranslateSettings(false)} />
-                                  
-                                  <div className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-[2.5rem] p-6 md:p-8 shadow-[0_0_50px_rgba(0,255,163,0.1)] overflow-hidden z-10 text-left animate-fadeIn">
-                                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
-                                    
-                                    <div className="flex flex-col gap-6">
-                                      <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-3">
-                                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
-                                            <Globe size={18} />
-                                          </div>
-                                          <div>
-                                            <h3 className="text-lg font-display font-black uppercase tracking-tight text-white leading-none text-left">Translation Setup</h3>
-                                            <p className="text-[9px] text-[#dfb15b] font-black uppercase tracking-wider mt-1.5 text-left">LibreTranslate Config Node</p>
-                                          </div>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => setShowTranslateSettings(false)}
-                                          className="p-1.5 hover:bg-white/5 rounded-xl text-white/40 hover:text-white transition-all cursor-pointer"
-                                        >
-                                          <X size={16} />
-                                        </button>
-                                      </div>
-
-                                      <div className="space-y-4">
-                                        <div className="space-y-1.5">
-                                          <label className="text-[10px] font-black uppercase tracking-wider text-white/55">
-                                            Self‑Hosted Server URL
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={translateServerUrl}
-                                            onChange={(e) => {
-                                              setTranslateServerUrl(e.target.value);
-                                              localStorage.setItem('translate_server_url', e.target.value);
-                                            }}
-                                            placeholder="e.g. http://localhost:5000"
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-semibold text-white outline-none focus:border-primary/50"
-                                          />
-                                          <p className="text-[9px] text-white/30 font-semibold leading-relaxed uppercase">
-                                            The endpoint where your self-hosted LibreTranslate server is deployed. Leave empty or use default if local.
-                                          </p>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                          <label className="text-[10px] font-black uppercase tracking-wider text-white/55">
-                                            API Key (Optional)
-                                          </label>
-                                          <input
-                                            type="password"
-                                            value={translateApiKey}
-                                            onChange={(e) => {
-                                              setTranslateApiKey(e.target.value);
-                                              localStorage.setItem('translate_api_key', e.target.value);
-                                            }}
-                                            placeholder="Leave empty if not required"
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-semibold text-white outline-none focus:border-primary/50"
-                                          />
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                          <label className="text-[10px] font-black uppercase tracking-wider text-white/55">
-                                            Preferred Incoming Language
-                                          </label>
-                                          <select
-                                            value={translatePreferredLang}
-                                            onChange={(e) => {
-                                              setTranslatePreferredLang(e.target.value);
-                                              localStorage.setItem('translate_preferred_lang', e.target.value);
-                                            }}
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-semibold text-white outline-none focus:border-primary/50 cursor-pointer uppercase"
-                                          >
-                                            <option value="en">English (EN)</option>
-                                            <option value="fr">French (FR)</option>
-                                            <option value="es">Spanish (ES)</option>
-                                            <option value="de">German (DE)</option>
-                                            <option value="it">Italian (IT)</option>
-                                            <option value="pt">Portuguese (PT)</option>
-                                            <option value="ar">Arabic (AR)</option>
-                                          </select>
-                                          <p className="text-[9px] text-white/30 font-semibold leading-relaxed uppercase">
-                                            Incoming fan messages can be double-tapped on mobile (or double-clicked on desktop) to instantly translate to this language.
-                                          </p>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex gap-3 justify-end pt-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setTranslateServerUrl('http://localhost:5000');
-                                            setTranslateApiKey('');
-                                            setTranslatePreferredLang('en');
-                                            localStorage.setItem('translate_server_url', 'http://localhost:5000');
-                                            localStorage.setItem('translate_api_key', '');
-                                            localStorage.setItem('translate_preferred_lang', 'en');
-                                            triggerToast('Settings reset to defaults');
-                                          }}
-                                          className="px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all cursor-pointer"
-                                        >
-                                          Reset Defaults
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => setShowTranslateSettings(false)}
-                                          className="px-8 py-2.5 bg-primary hover:bg-[#dfb15b] text-black font-black uppercase rounded-xl text-[10px] tracking-widest shadow-lg shadow-primary/15 transition-all cursor-pointer"
-                                        >
-                                          Save & Exit
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                              <form onSubmit={handleChatSendMessage} className="bg-white/[0.01] border-t border-white/5 p-4 flex gap-2 items-center">
+                                <label className="h-11 w-11 bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center cursor-pointer shrink-0 transition-all">
+                                  <Send size={15} className="rotate-[-45deg] scale-x-[-1]" />
+                                  <input type="file" className="hidden" accept="image/*" disabled={activeUploading} onChange={handleChatImageUpload} />
+                                </label>
+                                <input
+                                  type="text"
+                                  value={activeNewMessage}
+                                  onChange={e => handleChatInputChange(e.target.value)}
+                                  placeholder="Type verified response..."
+                                  className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-semibold text-white outline-none focus:border-primary/50"
+                                />
+                                <button
+                                  type="submit"
+                                  disabled={activeUploading}
+                                  className="h-11 px-3 sm:px-5 bg-primary text-black rounded-xl font-black text-[10px] uppercase tracking-wider hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 hover:shadow-primary/20 disabled:opacity-55 shrink-0"
+                                >
+                                  <span className="hidden sm:inline">Send</span> <Send size={12} />
+                                </button>
+                              </form>
                             </>
                           ) : (
                             <div className="py-20 text-center text-sans space-y-3 m-auto">

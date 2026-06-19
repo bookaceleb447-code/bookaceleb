@@ -50,8 +50,84 @@ if (rawGroq) {
 } else {
   console.log("  - GROQ_API_KEY: MISSING \u274C");
 }
+function formatFirebasePrivateKey(key) {
+  if (!key) return "";
+  let clean = key.trim().replace(/^["']|["']$/g, "").trim();
+  clean = clean.replace(/\\n/g, "\n");
+  return clean;
+}
+function isValidFirebasePrivateKey(key) {
+  if (!key) return false;
+  const clean = formatFirebasePrivateKey(key);
+  return clean.includes("-----BEGIN PRIVATE KEY-----") && clean.includes("-----END PRIVATE KEY-----");
+}
+var rawFirebaseKey = process.env.FIREBASE_PRIVATE_KEY;
+var rawFirebaseClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+var rawFirebaseProjectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+if (rawFirebaseKey) {
+  const isVal = isValidFirebasePrivateKey(rawFirebaseKey);
+  console.log(`  - FIREBASE_PRIVATE_KEY: EXISTS (Length: ${rawFirebaseKey.length}, Valid PEM: ${isVal})`);
+} else {
+  console.log("  - FIREBASE_PRIVATE_KEY: MISSING \u274C");
+}
+if (rawFirebaseClientEmail) {
+  console.log(`  - FIREBASE_CLIENT_EMAIL: EXISTS (Value: ${rawFirebaseClientEmail})`);
+} else {
+  console.log("  - FIREBASE_CLIENT_EMAIL: MISSING \u274C");
+}
+if (rawFirebaseProjectId) {
+  console.log(`  - FIREBASE_PROJECT_ID: EXISTS (Value: ${rawFirebaseProjectId})`);
+} else {
+  console.log("  - FIREBASE_PROJECT_ID: MISSING \u274C");
+}
+var dbIdLog = process.env.FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || "(default)";
+console.log(`  - FIRESTORE_DATABASE_ID: Target database ID is "${dbIdLog}"`);
 console.log("==================================================");
+function validateFirebaseAdminCredentials() {
+  const isProdOrVercel = !!process.env.VERCEL || process.env.NODE_ENV === "production";
+  const errors = [];
+  const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || "bookaceleb-e9162";
+  if (!rawKey) {
+    errors.push("\u274C FIREBASE_PRIVATE_KEY is missing/empty.");
+  } else {
+    const cleanKey = formatFirebasePrivateKey(rawKey);
+    if (!cleanKey.includes("-----BEGIN PRIVATE KEY-----") || !cleanKey.includes("-----END PRIVATE KEY-----")) {
+      errors.push("\u274C FIREBASE_PRIVATE_KEY format is invalid (must contain '-----BEGIN PRIVATE KEY-----' and '-----END PRIVATE KEY-----').");
+    }
+  }
+  if (!clientEmail) {
+    errors.push("\u274C FIREBASE_CLIENT_EMAIL is missing/empty.");
+  } else if (!clientEmail.includes("@")) {
+    errors.push(`\u274C FIREBASE_CLIENT_EMAIL format is invalid: "${clientEmail}"`);
+  }
+  if (!projectId || projectId === "placeholder-project-id") {
+    errors.push("\u274C FIREBASE_PROJECT_ID is missing/empty.");
+  }
+  if (errors.length > 0) {
+    console.error("\n=================================================================================");
+    console.error("\u{1F692} [CRITICAL STARTUP FAILURE] Firebase Admin Credentials Incomplete!");
+    console.error("=================================================================================");
+    errors.forEach((err) => console.error(err));
+    console.error("\n\u{1F4A1} HOW TO ADD THIS ON VERCEL:");
+    console.error("1. Go to your Vercel Dashboard -> Project Settings -> Environment Variables.");
+    console.error("2. Add the following keys with exact values copying from your Service Account JSON:");
+    console.error("   - FIREBASE_PROJECT_ID   : e.g. 'bookaceleb-e9162'");
+    console.error("   - FIREBASE_CLIENT_EMAIL : e.g. 'firebase-adminsdk-fbsvc@bookaceleb-e9162.iam.gserviceaccount.com'");
+    console.error("   - FIREBASE_PRIVATE_KEY  : Paste the entire BEGIN...END block. Vercel preserves multiline keys perfectly.");
+    console.error("=================================================================================\n");
+    // Enable fallback mode instead of crashing startup when running on Vercel/Production
+    console.warn("\n📻 [FALLBACK SYSTEM ACTIVE] Startup proceeding without full Admin SDK credentials.");
+    console.warn("   The application will seamlessly fall back to REST-based Firebase transactions using end-user Bearer tokens.");
+    console.warn("=================================================================================\n");
+  } else {
+    console.log("\u{1F6F0}\uFE0F [DATABASE_VALIDATOR] Credentials validated and ready.");
+  }
+}
+validateFirebaseAdminCredentials();
 var db = null;
+var connectionAttemptsCount = 0;
 function getDatabaseId() {
   if (process.env.FIRESTORE_DATABASE_ID) return process.env.FIRESTORE_DATABASE_ID;
   if (process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID) return process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID;
@@ -71,6 +147,9 @@ function getDatabaseId() {
   return "(default)";
 }
 function getProjectId() {
+  if (process.env.FIREBASE_PROJECT_ID) {
+    return process.env.FIREBASE_PROJECT_ID;
+  }
   if (process.env.VITE_FIREBASE_PROJECT_ID) {
     return process.env.VITE_FIREBASE_PROJECT_ID;
   }
@@ -86,49 +165,116 @@ function getProjectId() {
   }
   return "placeholder-project-id";
 }
-function getDb() {
-  if (db) return db;
+function resetCachedDb() {
+  console.warn("\u{1F9F9} [DATABASE] Resetting active cached Firestore master instance.");
+  db = null;
+}
+function getDb(forceRebuild = false) {
+  if (db && !forceRebuild) {
+    return db;
+  }
+  connectionAttemptsCount++;
+  console.log(`\u{1F6F0}\uFE0F [DATABASE] Attempting connection initialization (Attempt #${connectionAttemptsCount}, ForceRebuild=${forceRebuild})...`);
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
   const projectId = getProjectId();
+  const startTime = performance.now();
   const isGoogleEnvironment = process.env.K_SERVICE || process.env.K_REVISION || process.env.GOOGLE_CLOUD_PROJECT;
   if (!privateKey && !isGoogleEnvironment) {
-    console.warn("\u26A0\uFE0F No FIREBASE_PRIVATE_KEY detected outside of Google Cloud. Skipping Admin SDK to prevent auth hangs, using lightweight REST fallback instead.");
+    console.warn("\u26A0\uFE0F [DATABASE] No FIREBASE_PRIVATE_KEY detected outside of Google Cloud. Skipping Admin SDK initialization to prevent auth hangs, using fallback methods.");
     return null;
   }
   if (!(admin.apps && admin.apps.length)) {
     try {
       if (privateKey) {
+        const cleanPrivateKey = formatFirebasePrivateKey(privateKey);
+        const cleanClientEmail = process.env.FIREBASE_CLIENT_EMAIL || `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
         const adminConfig = {
           projectId,
-          clientEmail: `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`,
-          privateKey: privateKey.replace(/\\n/g, "\n")
+          clientEmail: cleanClientEmail,
+          privateKey: cleanPrivateKey
         };
         admin.initializeApp({
           credential: admin.credential.cert(adminConfig),
           databaseURL: `https://${projectId}.firebaseio.com`
         });
-        console.log(`\u2705 Firebase Admin successfully initialized using private key cert credentials for project: ${projectId}`);
+        console.log(`\u2705 [DATABASE] Firebase Admin successfully initialized using private key cert credentials for project: ${projectId}`);
       } else {
         admin.initializeApp({
           projectId,
           databaseURL: `https://${projectId}.firebaseio.com`
         });
-        console.log(`\u2705 Firebase Admin successfully initialized using Google Application Default Credentials for project: ${projectId}`);
+        console.log(`\u2705 [DATABASE] Firebase Admin successfully initialized using Google Application Default Credentials for project: ${projectId}`);
       }
     } catch (error) {
-      console.error("\u274C Failed to initialize Firebase Admin:", error);
+      console.error("\u274C [DATABASE] Failed to initialize Firebase Admin app framework:", error);
       return null;
     }
   }
   try {
     const databaseId = getDatabaseId();
     db = getFirestore(admin.apps[0], databaseId);
-    console.log(`\u2705 Firebase Admin SDK successfully bound to custom firestore databaseId: ${databaseId}`);
+    try {
+      const isVercelHost = !!process.env.VERCEL;
+      db.settings({
+        preferRest: isVercelHost,
+        // Converts gRPC stream sockets into simple, decoupled HTTP requests avoiding cold/restore connection hangs
+        ignoreUndefinedProperties: true
+      });
+      console.log(`\u2705 [DATABASE] Configured settings: preferRest=${isVercelHost}, ignoreUndefinedProperties=true`);
+    } catch (settingsError) {
+      console.warn(`\u26A0\uFE0F [DATABASE] Settings adjustment declined by Cloud Firestore driver: ${settingsError.message}. Appending standard configuration.`);
+      try {
+        db.settings({ ignoreUndefinedProperties: true });
+      } catch (e) {
+      }
+    }
+    const duration = (performance.now() - startTime).toFixed(1);
+    console.log(`\u2705 [DATABASE] Success! DB connection established and cached successfully in ${duration}ms.`);
   } catch (err) {
-    console.error("\u274C Failed to get Firestore DB with custom databaseId. Falling back to default database:", err);
-    db = admin.firestore();
+    console.error(`\u274C [DATABASE] Failed to bind custom Firestore databaseId: ${err.message}`);
+    try {
+      db = admin.firestore();
+      console.log("\u2139\uFE0F [DATABASE] Bound default fallback Firestore interface successfully.");
+    } catch (fallbackErr) {
+      console.error("\u274C [DATABASE] Critical Fallback Firestore binder failure:", fallbackErr.message);
+      db = null;
+    }
   }
   return db;
+}
+async function withDbTimeoutAndRetry(taskDescription, fn, maxRetries = 2, timeoutMs = 7e3) {
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    attempt++;
+    const queryStartTime = performance.now();
+    const firestore = getDb();
+    if (!firestore) {
+      throw new Error("Local Database Service Offline (Null Firestore Instance)");
+    }
+    try {
+      const queryPromise = fn(firestore);
+      const timeoutPromise = new Promise(
+        (_, reject) => setTimeout(() => reject(new Error(`Timeout: Operation exceeded ${timeoutMs}ms limit.`)), timeoutMs)
+      );
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      const duration = (performance.now() - queryStartTime).toFixed(1);
+      console.log(`\u23F1\uFE0F [DATABASE_QUERY] "${taskDescription}" completed successfully. Elapsed: ${duration}ms (Attempt #${attempt}/${maxRetries + 1})`);
+      return result;
+    } catch (error) {
+      const duration = (performance.now() - queryStartTime).toFixed(1);
+      console.error(`\u274C [DATABASE_QUERY] "${taskDescription}" failed after ${duration}ms on attempt #${attempt}: ${error.message}`);
+      const isConnectionIssue = error.message.includes("Timeout") || error.message.includes("UNAVAILABLE") || error.message.includes("DEADLINE_EXCEEDED") || error.message.includes("socket") || error.message.includes("connection");
+      if (isConnectionIssue) {
+        console.warn(`\u{1F504} [DATABASE] Connection event issue detected. Flushing connection cache and preparing reconnect.`);
+        resetCachedDb();
+      }
+      if (attempt > maxRetries) {
+        throw new Error(`Database transaction timed out or failed permanently: ${error.message}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+    }
+  }
+  throw new Error("Database query processing failed.");
 }
 function parseFirestoreValue(value) {
   if (!value) return null;
@@ -160,14 +306,19 @@ function parseFirestoreRestDoc(doc) {
   return result;
 }
 async function fetchDocumentWithFallback(collectionName, docId, token, firestore) {
+  const queryStartTime = performance.now();
+  console.log(`\u23F1\uFE0F [DATABASE_QUERY] fetchDocumentWithFallback initiated for ${collectionName}/${docId}...`);
   if (firestore) {
     try {
       const docSnap = await firestore.collection(collectionName).doc(docId).get();
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
       if (docSnap.exists) {
+        console.log(`\u2705 [DATABASE_QUERY] fetchDocumentWithFallback loaded successfully from Custom DB in ${elapsed}ms.`);
         return docSnap.data();
       }
     } catch (err) {
-      console.warn(`\u26A0\uFE0F Firebase Admin fetch failed for custom DB ${collectionName}/${docId}: ${err.message}.`);
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
+      console.warn(`\u26A0\uFE0F [DATABASE_QUERY] Firebase Admin fetch failed for custom DB ${collectionName}/${docId} in ${elapsed}ms: ${err.message}. Trying defaults...`);
     }
   }
   try {
@@ -175,14 +326,16 @@ async function fetchDocumentWithFallback(collectionName, docId, token, firestore
       const defaultDb = admin.firestore();
       if (defaultDb && defaultDb !== firestore) {
         const defaultDocSnap = await defaultDb.collection(collectionName).doc(docId).get();
+        const elapsed = (performance.now() - queryStartTime).toFixed(1);
         if (defaultDocSnap.exists) {
-          console.log(`\u2705 [FAILSAFE DEFAULT DB] Loaded ${collectionName}/${docId} successfully from (default) database.`);
+          console.log(`\u2705 [DATABASE_QUERY] fetchDocumentWithFallback loaded ${collectionName}/${docId} successfully from (default) database in ${elapsed}ms.`);
           return defaultDocSnap.data();
         }
       }
     }
   } catch (err) {
-    console.warn(`\u26A0\uFE0F Firebase Admin fetch failed for default DB ${collectionName}/${docId}: ${err.message}.`);
+    const elapsed = (performance.now() - queryStartTime).toFixed(1);
+    console.warn(`\u26A0\uFE0F [DATABASE_QUERY] Firebase Admin fetch failed for default DB ${collectionName}/${docId} in ${elapsed}ms: ${err.message}.`);
   }
   if (token) {
     try {
@@ -195,16 +348,18 @@ async function fetchDocumentWithFallback(collectionName, docId, token, firestore
           "Authorization": `Bearer ${token}`
         }
       });
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
       if (response.ok) {
         const json = await response.json();
         const parsed = parseFirestoreRestDoc(json);
-        console.log(`\u2705 [FAILSAFE REST] Loaded ${collectionName}/${docId} successfully.`);
+        console.log(`\u2705 [FAILSAFE REST] Loaded ${collectionName}/${docId} successfully via REST in ${elapsed}ms.`);
         return parsed;
       } else {
-        console.error(`\u274C [FAILSAFE REST] Failed to load ${collectionName}/${docId}. Status: ${response.status} - ${response.statusText}`);
+        console.error(`\u274C [FAILSAFE REST] Failed to load ${collectionName}/${docId} via REST after ${elapsed}ms. Status: ${response.status} - ${response.statusText}`);
       }
     } catch (err) {
-      console.error(`\u274C [FAILSAFE REST] Error fetching ${collectionName}/${docId} from REST API:`, err);
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
+      console.error(`\u274C [FAILSAFE REST] Error fetching ${collectionName}/${docId} from REST API after ${elapsed}ms:`, err);
     }
     try {
       const projectId = getProjectId();
@@ -215,10 +370,11 @@ async function fetchDocumentWithFallback(collectionName, docId, token, firestore
           "Authorization": `Bearer ${token}`
         }
       });
+      const elapsed = (performance.now() - queryStartTime).toFixed(1);
       if (response.ok) {
         const json = await response.json();
         const parsed = parseFirestoreRestDoc(json);
-        console.log(`\u2705 [FAILSAFE REST DEFAULT DB] Loaded ${collectionName}/${docId} successfully.`);
+        console.log(`\u2705 [FAILSAFE REST DEFAULT DB] Loaded ${collectionName}/${docId} successfully via REST standard in ${elapsed}ms.`);
         return parsed;
       }
     } catch (err) {
@@ -229,6 +385,39 @@ async function fetchDocumentWithFallback(collectionName, docId, token, firestore
 }
 var app = express();
 app.use(express.json());
+app.use((req, res, next) => {
+  const requestTimeoutLimit = 12e3;
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error(`\u26A0\uFE0F [TIMEOUT] Request ${req.method} ${req.url} timed out after ${requestTimeoutLimit}ms.`);
+      res.status(503).json({
+        success: false,
+        error: "Our database connection is momentarily running slow or has timed out. Please refresh or try again in a moment."
+      });
+    }
+  }, requestTimeoutLimit);
+  res.on("finish", () => clearTimeout(timeoutId));
+  res.on("close", () => clearTimeout(timeoutId));
+  next();
+});
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health" || req.path === "/api/health") {
+    return next();
+  }
+  try {
+    const firestore = getDb();
+    if (!firestore && !process.env.GEMINI_API_KEY) {
+      console.warn(`\u26A0\uFE0F [DATABASE] Active request for ${req.path} without database presence.`);
+    }
+  } catch (err) {
+    console.error(`\u274C [DATABASE] Middleware caught db connection error: ${err.message}`);
+    return res.status(503).json({
+      success: false,
+      error: "The database connection is temporarily offline. Please try again."
+    });
+  }
+  next();
+});
 app.get(["/api/health", "/health"], (req, res) => {
   res.json({ status: "ok", firebaseAdmin: !!getDb() });
 });
@@ -302,6 +491,514 @@ app.post(["/api/admin/verify-celebrity", "/admin/verify-celebrity"], async (req,
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+async function activateUpgrade(db2, userId, upgradeType, planName, transactionId, amountPaid, currencyPaid, paymentMethod, txRef) {
+  const now = Date.now();
+  const recordId = txRef || `purchase-${userId}-${upgradeType}-${now}`;
+  await db2.collection("premiumPayments").doc(recordId).set({
+    userId,
+    upgradeType,
+    planName,
+    amount: amountPaid,
+    currency: currencyPaid,
+    paymentMethod,
+    transactionId,
+    paymentStatus: "success",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    txRef: txRef || recordId
+  }, { merge: true });
+  if (upgradeType === "celebrity") {
+    const durationDays = planName === "yearly" ? 365 : 31;
+    const expiryDate = new Date(now + durationDays * 24 * 60 * 60 * 1e3).toISOString();
+    await db2.collection("celebrityProfiles").doc(userId).set({
+      isLocked: false,
+      upgradePending: false,
+      verifiedCelebrity: true,
+      premiumCelebrity: true,
+      celebrityPlan: planName,
+      celebrityExpiryDate: expiryDate
+    }, { merge: true });
+    await db2.collection("users").doc(userId).set({
+      role: "celebrity",
+      verifiedCelebrity: true,
+      premiumCelebrity: true,
+      celebrityPlan: planName,
+      celebrityExpiryDate: expiryDate
+    }, { merge: true });
+  } else if (upgradeType === "ai_premium") {
+    const durationDays = planName === "yearly" ? 365 : 31;
+    const expiryMs = now + durationDays * 24 * 60 * 60 * 1e3;
+    const expiryISO = new Date(expiryMs).toISOString();
+    await db2.collection("celebrityProfiles").doc(userId).set({
+      aiPremium: true,
+      isAiSubscribed: true,
+      aiUpgradePending: false,
+      aiPremiumActivatedAt: now,
+      aiPremiumExpiresAt: expiryMs,
+      aiPremiumPlan: planName,
+      aiPremiumExpiryDate: expiryISO
+    }, { merge: true });
+    await db2.collection("users").doc(userId).set({
+      aiPremium: true,
+      isAiSubscribed: true,
+      aiPremiumActivatedAt: now,
+      aiPremiumExpiresAt: expiryMs,
+      aiPremiumPlan: planName,
+      aiPremiumExpiryDate: expiryISO
+    }, { merge: true });
+    await db2.collection("aiUsage").doc(userId).set({
+      planType: "ai_subscribed",
+      dailyLimit: 50,
+      maxDailyRequests: 50,
+      aiPremium: true,
+      aiPremiumActivatedAt: now,
+      aiPremiumExpiresAt: expiryMs,
+      remainingRequests: 50,
+      requestCountToday: 0,
+      dailyRequests: 0,
+      geminiQuotaExceeded: false
+    }, { merge: true });
+  }
+}
+app.get("/api/premium/settings", async (req, res) => {
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database reference offline" });
+  try {
+    const snap = await db2.collection("siteSettings").doc("global").get();
+    const data = snap.exists ? snap.data() : {};
+    return res.json({
+      success: true,
+      enableFlutterwave: data?.flutterwaveEnabled !== false && data?.enableFlutterwave !== false,
+      enableManualPayment: data?.manualPaymentEnabled !== false && data?.enableManualPayment !== false,
+      enableCelebrityUpgrade: data?.enableCelebrityUpgrade !== false,
+      enableAiUpgrade: data?.enableAiUpgrade !== false,
+      celebrityPlanMonthlyPrice: data?.celebrityPlanMonthlyPrice ?? 499,
+      celebrityPlanYearlyPrice: data?.celebrityPlanYearlyPrice ?? 4999,
+      aiPremiumMonthlyPrice: data?.aiPremiumMonthlyPrice ?? 150,
+      aiPremiumYearlyPrice: data?.aiPremiumYearlyPrice ?? 1200,
+      currency: data?.currency || "USD",
+      adminBankName: data?.adminBankName || "OPAY",
+      adminAccountNo: data?.adminAccountNo || "8062827392",
+      adminAccountName: data?.adminAccountName || "BENJAMIN GEORGE",
+      adminPaymentInstructions: data?.adminPaymentInstructions || "Transfer premium dues to bank details and upload receipt for administrative approval.",
+      flutterwavePublicKey: process.env.FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK-6773c01c66a5accbbc89b37b89504967-X",
+      flutterwaveEnabled: data?.flutterwaveEnabled !== false && data?.enableFlutterwave !== false,
+      flutterwaveDisabledReason: data?.flutterwaveDisabledReason || "",
+      manualPaymentEnabled: data?.manualPaymentEnabled !== false && data?.enableManualPayment !== false,
+      manualPaymentDisabledReason: data?.manualPaymentDisabledReason || ""
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+app.post("/api/premium/initialize", async (req, res) => {
+  const { userId, upgradeType, planName, email, name } = req.body;
+  if (!userId || !upgradeType || !planName || !email) {
+    return res.status(400).json({ error: "UserId, upgradeType, planName, and email parameters are required" });
+  }
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database connection has hung" });
+  try {
+    const snap = await db2.collection("siteSettings").doc("global").get();
+    const data = snap.exists ? snap.data() : {};
+    let amount = 0;
+    if (upgradeType === "celebrity") {
+      amount = planName === "yearly" ? data?.celebrityPlanYearlyPrice ?? 4999 : data?.celebrityPlanMonthlyPrice ?? 499;
+    } else if (upgradeType === "ai_premium") {
+      amount = planName === "yearly" ? data?.aiPremiumYearlyPrice ?? 1200 : data?.aiPremiumMonthlyPrice ?? 150;
+    } else {
+      return res.status(400).json({ error: "Invalid upgrade type specified" });
+    }
+    const currency = data?.currency || "USD";
+    const txRef = `ref-${userId}-${upgradeType}-${planName}-${Date.now()}`;
+    const purchaseDoc = {
+      userId,
+      upgradeType,
+      planName,
+      amount,
+      currency,
+      paymentMethod: "flutterwave",
+      transactionId: "",
+      paymentStatus: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      txRef,
+      email,
+      name: name || "Premium Subscriber"
+    };
+    await db2.collection("premiumPayments").doc(txRef).set(purchaseDoc);
+    const flwSecretKey = process.env.FLUTTERWAVE_SECRET_KEY || "FLWSECK-a53f1c5b1982eca9a9888762ea46c682-19e94517224vt-X";
+    const referer = req.headers.referer || "";
+    let baseUrl = "";
+    if (referer) {
+      try {
+        const urlObj = new URL(referer);
+        baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+      } catch (e) {
+        baseUrl = "https://bookaceleb.site";
+      }
+    } else {
+      baseUrl = "https://bookaceleb.site";
+    }
+    const redirectUrl = `${baseUrl}/admin?tab=${upgradeType === "celebrity" ? "upgrade" : "ai-premium"}&status=completed&tx_ref=${txRef}`;
+    const flwPayload = {
+      tx_ref: txRef,
+      amount: amount.toString(),
+      currency,
+      redirect_url: redirectUrl,
+      meta: {
+        userId,
+        upgradeType,
+        planName
+      },
+      customer: {
+        email,
+        name: name || "Premium Subscriber"
+      },
+      customizations: {
+        title: "BookACeleb Premium Upgrade",
+        description: `Upgrade to ${upgradeType === "celebrity" ? "Verified Premium Celebrity" : "AI Assist Premium"}`
+      }
+    };
+    const flwRes = await fetch("https://api.flutterwave.com/v3/payments", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${flwSecretKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(flwPayload)
+    });
+    if (!flwRes.ok) {
+      const errText = await flwRes.text();
+      console.error("[FLW-INITIALIZE-ERROR]", errText);
+      return res.status(502).json({ error: "Failed to initialize Flutterwave transaction", details: errText });
+    }
+    const flwData = await flwRes.json();
+    if (flwData.status !== "success" || !flwData.data?.link) {
+      return res.status(502).json({ error: "Flutterwave returned invalid payment link", details: flwData });
+    }
+    return res.json({
+      success: true,
+      checkoutUrl: flwData.data.link,
+      txRef
+    });
+  } catch (error) {
+    console.error("[PREMIUM-INITIALIZE-CATCH]", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+app.post("/api/premium/verify", async (req, res) => {
+  const { transactionId, txRef } = req.body;
+  if (!transactionId) {
+    return res.status(400).json({ error: "Missing transactionId parameter" });
+  }
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database offline" });
+  try {
+    const duplicateQuery = await db2.collection("premiumPayments").where("transactionId", "==", transactionId.toString()).where("paymentStatus", "==", "success").limit(1).get();
+    if (!duplicateQuery.empty) {
+      return res.json({ success: true, message: "Transaction already processed.", duplicate: true });
+    }
+    const flwSecretKey = process.env.FLUTTERWAVE_SECRET_KEY || "FLWSECK-a53f1c5b1982eca9a9888762ea46c682-19e94517224vt-X";
+    const runVerification = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
+      headers: {
+        Authorization: `Bearer ${flwSecretKey}`
+      }
+    });
+    if (!runVerification.ok) {
+      return res.status(502).json({ error: "Could not link with Flutterwave verification desk." });
+    }
+    const verificationPayload = await runVerification.json();
+    if (verificationPayload.status !== "success" || !verificationPayload.data) {
+      return res.status(400).json({ error: "Payment verification failed" });
+    }
+    const { status, amount, currency, tx_ref, meta } = verificationPayload.data;
+    if (status !== "successful") {
+      return res.status(400).json({ error: `Transaction status is '${status}', anticipated 'successful'.` });
+    }
+    const docRef = db2.collection("premiumPayments").doc(tx_ref || txRef || "unknown");
+    const paymentDocVal = await docRef.get();
+    const finalUserId = paymentDocVal.exists ? paymentDocVal.data()?.userId : meta?.userId || meta?.customUserId || "unknown";
+    const finalUpgradeType = paymentDocVal.exists ? paymentDocVal.data()?.upgradeType : meta?.upgradeType || "unknown";
+    const finalPlanName = paymentDocVal.exists ? paymentDocVal.data()?.planName : meta?.planName || "monthly";
+    await activateUpgrade(
+      db2,
+      finalUserId,
+      finalUpgradeType,
+      finalPlanName,
+      transactionId.toString(),
+      Number(amount),
+      currency,
+      "flutterwave",
+      tx_ref || txRef
+    );
+    return res.json({
+      success: true,
+      message: "Payment successfully verified and activated!",
+      upgradeType: finalUpgradeType,
+      userId: finalUserId
+    });
+  } catch (error) {
+    console.error("[PREMIUM-VERIFY-CATCH]", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+app.post("/api/flutterwave/webhook", async (req, res) => {
+  const secretHash = process.env.FLUTTERWAVE_WEBHOOK_SECRET || "BCA_Flutterwave_2026_7fK9xP3mQa8LwR2nVz6YhD4tCs1Ue5Gb";
+  const incomingHash = req.get("verif-hash") || req.headers["verif-hash"];
+  console.log("[FLW-WEBHOOK] Received payload hook event:", req.body);
+  if (!incomingHash || incomingHash !== secretHash) {
+    console.error("[FLW-WEBHOOK] \u274C Secret hash did not match");
+    return res.status(401).send("Verification hash error");
+  }
+  const db2 = getDb();
+  if (!db2) {
+    console.error("[FLW-WEBHOOK] \u274C Firebase reference null");
+    return res.status(500).send("Database not connected");
+  }
+  const { event, data } = req.body;
+  try {
+    await db2.collection("webhookEvents").add({
+      event: event || "unknown",
+      tx_ref: data?.tx_ref || "unknown",
+      amount: data?.amount || 0,
+      currency: data?.currency || "",
+      transactionId: data?.id?.toString() || "",
+      status: data?.status || "",
+      receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+      rawPayload: req.body
+    });
+  } catch (errLog) {
+    console.warn("[FLW-WEBHOOK-SAVE-ERROR]", errLog);
+  }
+  if (event === "charge.completed" && data?.status === "successful") {
+    const transactionId = data.id?.toString();
+    const flwAmount = data.amount;
+    const flwCurrency = data.currency;
+    const txRef = data.tx_ref;
+    try {
+      const duplicateQuery = await db2.collection("premiumPayments").where("transactionId", "==", transactionId).where("paymentStatus", "==", "success").limit(1).get();
+      if (!duplicateQuery.empty) {
+        console.log(`[FLW-WEBHOOK] Transaction ${transactionId} already handled.`);
+        return res.status(200).send("Completed previously");
+      }
+      const flwSecretKey = process.env.FLUTTERWAVE_SECRET_KEY || "FLWSECK-a53f1c5b1982eca9a9888762ea46c682-19e94517224vt-X";
+      const runVerification = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
+        headers: {
+          Authorization: `Bearer ${flwSecretKey}`
+        }
+      });
+      if (!runVerification.ok) {
+        console.error(`[FLW-WEBHOOK] Verification check failed with status ${runVerification.status}`);
+        return res.status(502).send("Verification request failed");
+      }
+      const flwPayload = await runVerification.json();
+      if (flwPayload.status !== "success" || !flwPayload.data) {
+        return res.status(400).send("Verified data mismatch");
+      }
+      const verifiedData = flwPayload.data;
+      if (verifiedData.status !== "successful") {
+        return res.status(400).send("Transaction holds unsuccessful status");
+      }
+      const verifiedTxRef = verifiedData.tx_ref;
+      const verifiedAmount = Number(verifiedData.amount);
+      const verifiedCurrency = verifiedData.currency;
+      const verifiedMeta = verifiedData.meta;
+      const docRef = db2.collection("premiumPayments").doc(verifiedTxRef || txRef || "unknown");
+      const paymentDocVal = await docRef.get();
+      const finalUserId = paymentDocVal.exists ? paymentDocVal.data()?.userId : verifiedMeta?.userId || verifiedMeta?.customUserId || "unknown";
+      const finalUpgradeType = paymentDocVal.exists ? paymentDocVal.data()?.upgradeType : verifiedMeta?.upgradeType || "unknown";
+      const finalPlanName = paymentDocVal.exists ? paymentDocVal.data()?.planName : verifiedMeta?.planName || "monthly";
+      await activateUpgrade(
+        db2,
+        finalUserId,
+        finalUpgradeType,
+        finalPlanName,
+        transactionId,
+        verifiedAmount,
+        verifiedCurrency,
+        "flutterwave",
+        verifiedTxRef || txRef
+      );
+      console.log(`[FLW-WEBHOOK] \u2705 Upgrade successfully verified & complete for ${finalUserId}`);
+      return res.status(200).send("Acknowledge Success");
+    } catch (processErr) {
+      console.error("[FLW-WEBHOOK-PROCESS-ERROR]", processErr);
+      return res.status(500).send("Error compiling activation");
+    }
+  }
+  return res.status(200).send("OK");
+});
+app.post("/api/premium/manual-submit", async (req, res) => {
+  const { userId, upgradeType, planName, paymentProof, email, name, transactionId } = req.body;
+  if (!userId || !upgradeType || !planName || !paymentProof || !email) {
+    return res.status(400).json({ error: "Missing required core parameters" });
+  }
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database offline" });
+  try {
+    const snap = await db2.collection("siteSettings").doc("global").get();
+    const data = snap.exists ? snap.data() : {};
+    let amount = 0;
+    if (upgradeType === "celebrity") {
+      amount = planName === "yearly" ? data?.celebrityPlanYearlyPrice ?? 4999 : data?.celebrityPlanMonthlyPrice ?? 499;
+    } else if (upgradeType === "ai_premium") {
+      amount = planName === "yearly" ? data?.aiPremiumYearlyPrice ?? 1200 : data?.aiPremiumMonthlyPrice ?? 150;
+    } else {
+      return res.status(400).json({ error: "Invalid upgrade type specified" });
+    }
+    const currency = data?.currency || "USD";
+    const recordId = `manual-${userId}-${upgradeType}-${Date.now()}`;
+    const infoPayload = {
+      userId,
+      upgradeType,
+      planName,
+      amount,
+      currency,
+      paymentMethod: "manual",
+      paymentProof,
+      transactionId: transactionId || recordId,
+      paymentStatus: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      email,
+      name: name || "Premium Subscriber"
+    };
+    await db2.collection("premiumPayments").doc(recordId).set(infoPayload);
+    if (upgradeType === "celebrity") {
+      await db2.collection("celebrityProfiles").doc(userId).set({
+        upgradePending: true,
+        paymentProof,
+        upgradeDate: (/* @__PURE__ */ new Date()).toISOString()
+      }, { merge: true });
+    } else {
+      await db2.collection("celebrityProfiles").doc(userId).set({
+        aiUpgradePending: true,
+        aiPaymentProof: paymentProof,
+        aiUpgradeDate: (/* @__PURE__ */ new Date()).toISOString()
+      }, { merge: true });
+    }
+    return res.json({ success: true, message: "Manual receipt uploaded! Super admin validation pending.", recordId });
+  } catch (error) {
+    console.error("[MANUAL-SUBMIT-CATCH]", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+app.post("/api/admin/premium/save-settings", async (req, res) => {
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database offline" });
+  try {
+    const updates = req.body;
+    await db2.collection("siteSettings").doc("global").set(updates, { merge: true });
+    return res.json({ success: true, message: "Administrative Settings changed!" });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+app.get("/api/admin/premium/payments", async (req, res) => {
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database offline" });
+  try {
+    const snap = await db2.collection("premiumPayments").orderBy("createdAt", "desc").get();
+    const payments = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return res.json({ success: true, payments });
+  } catch (e) {
+    try {
+      const snapNoSort = await db2.collection("premiumPayments").get();
+      const payments = snapNoSort.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      payments.sort((a, b) => {
+        const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tB - tA;
+      });
+      return res.json({ success: true, payments });
+    } catch (innerErr) {
+      return res.status(500).json({ error: innerErr.message });
+    }
+  }
+});
+app.post("/api/admin/premium/approve-manual", async (req, res) => {
+  const { recordId } = req.body;
+  if (!recordId) return res.status(400).json({ error: "Missing recordId" });
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database offline" });
+  try {
+    const docRef = db2.collection("premiumPayments").doc(recordId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: "Manual payment not found." });
+    }
+    const p = docSnap.data();
+    if (p?.paymentStatus === "success") {
+      return res.json({ success: true, message: "Already verified success" });
+    }
+    await activateUpgrade(
+      db2,
+      p?.userId,
+      p?.upgradeType,
+      p?.planName || "monthly",
+      p?.transactionId || recordId,
+      p?.amount || 0,
+      p?.currency || "USD",
+      "manual",
+      recordId
+    );
+    return res.json({ success: true, message: "Transaction approved and account upgraded successfully!" });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+app.post("/api/admin/premium/refund", async (req, res) => {
+  const { recordId } = req.body;
+  if (!recordId) return res.status(400).json({ error: "RecordId parameter is required" });
+  const db2 = getDb();
+  if (!db2) return res.status(503).json({ error: "Database offline" });
+  try {
+    const docRef = db2.collection("premiumPayments").doc(recordId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: "Payment record not found." });
+    }
+    const p = docSnap.data();
+    await docRef.update({
+      paymentStatus: "refunded",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    const { userId, upgradeType } = p || {};
+    if (upgradeType === "celebrity") {
+      await db2.collection("celebrityProfiles").doc(userId).set({
+        isLocked: true,
+        upgradePending: false,
+        verifiedCelebrity: false,
+        premiumCelebrity: false
+      }, { merge: true });
+      await db2.collection("users").doc(userId).set({
+        verifiedCelebrity: false,
+        premiumCelebrity: false
+      }, { merge: true });
+    } else if (upgradeType === "ai_premium") {
+      await db2.collection("celebrityProfiles").doc(userId).set({
+        aiPremium: false,
+        isAiSubscribed: false,
+        aiUpgradePending: false
+      }, { merge: true });
+      await db2.collection("users").doc(userId).set({
+        aiPremium: false,
+        isAiSubscribed: false
+      }, { merge: true });
+      await db2.collection("aiUsage").doc(userId).set({
+        planType: "free",
+        dailyLimit: 5,
+        maxDailyRequests: 5,
+        aiPremium: false,
+        remainingRequests: 5
+      }, { merge: true });
+    }
+    return res.json({ success: true, message: "Refund accomplished. Premium status revoked." });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 var lastRequestTime = /* @__PURE__ */ new Map();
@@ -1627,13 +2324,17 @@ if (!process.env.VERCEL) {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", async () => {
     console.log(`[SERVER] \u{1F680} Premium System running at http://localhost:${PORT}`);
+    console.log("\u{1F6F0}\uFE0F [DATABASE] Running startup connection check...");
     const firestore = getDb();
     if (firestore) {
-      console.log("[FIREBASE] Admin SDK connected. Checking site settings...");
-      const settingsRef = firestore.collection("siteSettings").doc("global");
-      settingsRef.get().then(async (settingsDoc) => {
+      const startupCheckStart = performance.now();
+      try {
+        const settingsRef = firestore.collection("siteSettings").doc("global");
+        const settingsDoc = await settingsRef.get();
+        const checkDuration = (performance.now() - startupCheckStart).toFixed(1);
+        console.log(`\u2705 [DATABASE] Startup connection check SUCCESS! Global settings read correctly in ${checkDuration}ms.`);
         if (!settingsDoc.exists) {
           console.log("[FIREBASE] Initializing global site settings...");
           await settingsRef.set({
@@ -1681,18 +2382,23 @@ if (!process.env.VERCEL) {
         } else {
           console.warn("[GROQ-DIAGNOSTIC] \u26A0\uFE0F No GROQ_API_KEY configured in environment or administrative database.");
         }
-      }).catch((err) => {
-        console.error("[FIREBASE] Failed to initialize settings:", err);
-      });
+      } catch (err) {
+        console.error(`\u274C [DATABASE] Startup connection check failed or timed out: ${err.message}`);
+        console.warn("\u26A0\uFE0F [DATABASE] Server is starting up with degraded database accessibility. Restoring with REST fallbacks where possible.");
+      }
     } else {
-      console.warn("[FIREBASE] Admin SDK failed to initialize. Check your FIREBASE_PRIVATE_KEY secret.");
+      console.warn("[FIREBASE] Admin SDK failed to initialize during startup connection check. Check your FIREBASE_PRIVATE_KEY secret.");
     }
   });
 }
 var server_default = app;
 export {
   server_default as default,
+  formatFirebasePrivateKey,
+  isValidFirebasePrivateKey,
   isValidGeminiApiKey,
-  isValidGroqApiKey
+  isValidGroqApiKey,
+  resetCachedDb,
+  withDbTimeoutAndRetry
 };
 //# sourceMappingURL=index.js.map
