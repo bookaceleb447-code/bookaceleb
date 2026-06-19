@@ -7,6 +7,7 @@ import { uploadToCloudinary } from '../../lib/cloudinary';
 import { motion } from 'motion/react';
 import { CelebrityHeader, FAQSection } from '../../components/CelebrityLayout';
 import { Heart, UploadCloud, ShieldCheck, CheckCircle, Globe, Landmark, Coins, Gift, ArrowLeft } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 const CHARITY_TYPES = [
     { id: 'edu', title: "Children's Education Foundation", desc: "Supporting education for underprivileged children worldwide." },
@@ -17,6 +18,7 @@ const CHARITY_TYPES = [
 export const DonationPage = () => {
     const { celebId } = useParams();
     const { user } = useAuth();
+    const { t } = useLanguage();
     const navigate = useNavigate();
     const [celeb, setCeleb] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -73,7 +75,7 @@ export const DonationPage = () => {
                   onClick={() => navigate(-1)} 
                   className="mb-8 flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 hover:border-white/10 rounded-full text-xs font-black uppercase tracking-widest text-white/70 hover:text-white transition-all cursor-pointer"
                 >
-                  <ArrowLeft size={14} /> Back
+                  <ArrowLeft size={14} /> {t('common.back', 'Back')}
                 </button>
 
                 <motion.div 
@@ -84,14 +86,14 @@ export const DonationPage = () => {
                   <div>
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-wider rounded-full flex items-center gap-1">
-                        <Heart size={10} /> Charity Ally
+                        <Heart size={10} /> {t('donation.charityAlly', 'Charity Ally')}
                       </span>
                     </div>
                     <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-black tracking-tight uppercase italic text-white">
-                      Diamond Charity Portal
+                      {t('donation.portalTitle', 'Diamond Charity Portal')}
                     </h1>
                     <p className="text-white/40 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-1">
-                      Transforming fame into global impact
+                      {t('donation.portalSubtitle', 'Transforming fame into global impact')}
                     </p>
                   </div>
                 </motion.div>
@@ -100,10 +102,10 @@ export const DonationPage = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                     <div className="lg:col-span-2 glass rounded-[3rem] p-6 sm:p-10 md:p-12 space-y-10 border border-white/5">
-                        <h2 className="text-3xl font-display font-bold uppercase tracking-tighter italic border-b border-white/5 pb-6 text-white text-left">Define Your Impact</h2>
+                        <h2 className="text-3xl font-display font-bold uppercase tracking-tighter italic border-b border-white/5 pb-6 text-white text-left">{t('donation.supportVip', 'Define Your Impact')}</h2>
                         
                         <div className="space-y-6">
-                            <label className="block text-[10px] uppercase font-black opacity-30 tracking-[0.2em] italic text-white/40">Contribution Tier (USD)</label>
+                            <label className="block text-[10px] uppercase font-black opacity-30 tracking-[0.2em] italic text-white/40">{t('donation.sponsorshipValue', 'Contribution Tier (USD)')}</label>
                             <div className="grid grid-cols-3 gap-4">
                                 {[100, 500, 1000].map(val => (
                                     <button 
@@ -124,7 +126,7 @@ export const DonationPage = () => {
                         </div>
 
                         <div className="space-y-4">
-                             <label className="block text-[10px] uppercase font-black opacity-30 tracking-[0.2em] italic text-white/40">Allocation Protocol</label>
+                             <label className="block text-[10px] uppercase font-black opacity-30 tracking-[0.2em] italic text-white/40">{t('donation.assignCharityGoal', 'Allocation Protocol')}</label>
                              <div className="space-y-3">
                                 {CHARITY_TYPES.map(type => (
                                     <div 
@@ -150,14 +152,14 @@ export const DonationPage = () => {
                              <div className="absolute top-0 right-0 p-10 opacity-5 scale-150 group-hover:rotate-45 transition-transform duration-1000 pointer-events-none">
                                 <Globe size={180} />
                              </div>
-                             <h3 className="font-bold uppercase tracking-widest text-white/40 border-l-4 border-primary pl-4 italic text-left">Payment Gateway Selection</h3>
+                             <h3 className="font-bold uppercase tracking-widest text-white/40 border-l-4 border-primary pl-4 italic text-left">{t('booking.gatewaySelection', 'Payment Gateway Selection')}</h3>
                              
                              {/* Payment Method Selector Cards */}
                              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                  {[
-                                     { id: 'bank', name: 'Bank', icon: <Landmark size={14} /> },
-                                     { id: 'crypto', name: 'Crypto', icon: <Coins size={14} /> },
-                                     { id: 'giftcard', name: 'Gift Card', icon: <Gift size={14} /> }
+                                     { id: 'bank', name: t('booking.bankTransfer', 'Bank'), icon: <Landmark size={14} /> },
+                                     { id: 'crypto', name: t('booking.cryptoWallet', 'Crypto'), icon: <Coins size={14} /> },
+                                     { id: 'giftcard', name: t('booking.giftCard', 'Gift Card'), icon: <Gift size={14} /> }
                                  ].map(method => (
                                      <button
                                          type="button"
@@ -178,7 +180,7 @@ export const DonationPage = () => {
                              <div className="p-4 sm:p-5 bg-black/40 border border-white/10 rounded-2xl space-y-4 text-xs font-semibold">
                                  {paymentMethod === 'bank' && (
                                       <div className="space-y-3 text-left">
-                                         <p className="text-[10px] uppercase font-black tracking-widest text-primary">Celebrity Bank Transfer Box</p>
+                                         <p className="text-[10px] uppercase font-black tracking-widest text-primary">{t('booking.bankTransfer', 'Bank')} Transfer Info</p>
                                          <div className="space-y-2 text-white/70">
                                              <p><span className="opacity-40 uppercase text-[9px] block">Bank Name</span> <strong className="text-white font-bold">{celeb?.payoutBankName || 'Not configured'}</strong></p>
                                              <p><span className="opacity-40 uppercase text-[9px] block">Acc Name</span> <strong className="text-white font-bold">{celeb?.payoutAccountName || 'Not configured'}</strong></p>
@@ -190,7 +192,7 @@ export const DonationPage = () => {
 
                                  {paymentMethod === 'crypto' && (
                                       <div className="space-y-3 text-left">
-                                         <p className="text-[10px] uppercase font-black tracking-widest text-primary">Celebrity Crypto Token</p>
+                                         <p className="text-[10px] uppercase font-black tracking-widest text-primary">{t('booking.cryptoWallet', 'Crypto')} Details</p>
                                          <div className="space-y-2 text-white/70">
                                              <p><span className="opacity-40 uppercase text-[9px] block">Network</span> <strong className="text-white font-bold">{celeb?.cryptoTokenName || 'USDT TRC20'}</strong></p>
                                              <p><span className="opacity-40 uppercase text-[9px] block">Address</span> <strong className="text-white font-mono font-bold select-all bg-black/50 p-2 rounded block break-all text-[11px] border border-white/5 mt-1">{celeb?.cryptoWalletAddress || 'Not configured'}</strong></p>
@@ -207,15 +209,15 @@ export const DonationPage = () => {
 
                                  {paymentMethod === 'giftcard' && (
                                       <div className="space-y-2 text-left text-xs">
-                                         <p className="text-[10px] uppercase font-black tracking-widest text-primary">Celebrity Gift Card</p>
+                                         <p className="text-[10px] uppercase font-black tracking-widest text-primary">{t('booking.giftCard', 'Gift Card')} Details</p>
                                          <p><span className="opacity-40 uppercase text-[9px] block">Required Voucher</span> <strong className="text-white font-bold">{celeb?.payoutGiftCardName || 'Apple Store Gift Card'}</strong></p>
                                          <p className="text-white/40 text-[9px] leading-relaxed italic">Purchase and submit screenshots of the barcode or active redemption card proof cleanly.</p>
-                                     </div>
+                                      </div>
                                  )}
                              </div>
 
                              <div className="pt-2 space-y-6">
-                                <label className="block text-[10px] uppercase font-black opacity-30 tracking-[0.2em] italic text-white/40">Upload Payment Receipt</label>
+                                <label className="block text-[10px] uppercase font-black opacity-30 tracking-[0.2em] italic text-white/40">{t('booking.uploadPdfProof', 'Upload Payment Receipt')}</label>
                                 <div className="h-44 rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-center px-10 relative cursor-pointer hover:border-primary transition-all bg-black/40">
                                     {file ? (
                                         <div className="space-y-2">
@@ -226,9 +228,9 @@ export const DonationPage = () => {
                                         <>
                                             <UploadCloud size={24} className="opacity-45 mb-2 text-primary" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-white mt-1">
-                                                {paymentMethod === 'bank' ? 'Upload Bank Transfer Slip' :
-                                                 paymentMethod === 'crypto' ? 'Upload TX Screenshot' :
-                                                 'Upload Card & Receipt'}
+                                                {paymentMethod === 'bank' ? t('booking.uploadPdfProof', 'Upload Bank Transfer Slip') :
+                                                 paymentMethod === 'crypto' ? t('booking.uploadPdfProof', 'Upload TX Screenshot') :
+                                                 t('booking.uploadPdfProof', 'Upload Card & Receipt')}
                                             </p>
                                         </>
                                     )}
@@ -241,13 +243,13 @@ export const DonationPage = () => {
                                 disabled={loading || !file}
                                 className="w-full py-6 bg-primary text-black rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.01] transition-all disabled:opacity-30"
                              >
-                                {loading ? 'Submitting...' : 'Make Donation'}
+                                {loading ? t('common.loading', 'Submitting...') : t('donation.submitBtn', 'Make Donation')}
                              </button>
                         </div>
                         
                         <div className="p-8 bg-white/5 rounded-[2.5rem] border border-white/5 flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary"><CheckCircle size={24}/></div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 leading-tight text-white/60">100% of your contribution (net processing) goes directly to the chosen foundation.</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 leading-tight text-white/60">{t('donation.proofHelp', '100% of your contribution (net processing) goes directly to the chosen foundation.')}</p>
                         </div>
                     </div>
                 </div>

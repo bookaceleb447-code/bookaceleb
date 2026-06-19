@@ -190,7 +190,7 @@ export const LandingPage = () => {
               <Globe size={28} />
             </div>
             <h3 className="text-4xl font-display font-black tracking-tighter text-white uppercase italic">150+ Icons</h3>
-            <p className="text-[10px] uppercase font-black text-white/30 tracking-[0.2em] mt-2">Verified Celebrities Globally</p>
+            <p className="text-[10px] uppercase font-black text-white/30 tracking-[0.2em] mt-2">{t('landing.statsVerified', 'Verified Celebrities Globally')}</p>
           </motion.div>
 
           <motion.div 
@@ -201,7 +201,7 @@ export const LandingPage = () => {
               <Users size={28} />
             </div>
             <h3 className="text-4xl font-display font-black tracking-tighter text-white uppercase italic">12k+ Fans</h3>
-            <p className="text-[10px] uppercase font-black text-white/30 tracking-[0.2em] mt-2">Registered Happy Members</p>
+            <p className="text-[10px] uppercase font-black text-white/30 tracking-[0.2em] mt-2">{t('landing.statsFans', 'Registered Happy Members')}</p>
           </motion.div>
 
           <motion.div 
@@ -212,7 +212,7 @@ export const LandingPage = () => {
               <CalendarRange size={28} />
             </div>
             <h3 className="text-4xl font-display font-black tracking-tighter text-white uppercase italic">8.4k+ Sessions</h3>
-            <p className="text-[10px] uppercase font-black text-white/30 tracking-[0.2em] mt-2">Completed VIP Bookings</p>
+            <p className="text-[10px] uppercase font-black text-white/30 tracking-[0.2em] mt-2">{t('landing.statsSessions', 'Completed VIP Bookings')}</p>
           </motion.div>
         </div>
       </section>
@@ -223,21 +223,21 @@ export const LandingPage = () => {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
-              <span className="text-[10px] uppercase font-black tracking-[0.25em] text-primary">High-Tier Registry</span>
+              <span className="text-[10px] uppercase font-black tracking-[0.25em] text-primary">{t('landing.registryBadge')}</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight italic">Featured Celebrities</h2>
-            <p className="text-white/40 mt-1 uppercase text-xs font-bold tracking-widest">Hand-picked premium icons officially curated by platform managers</p>
+            <h2 className="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight italic">{t('landing.featuredTitle')}</h2>
+            <p className="text-white/40 mt-1 uppercase text-xs font-bold tracking-widest">{t('landing.featuredSubtitle')}</p>
           </div>
           <a href="#trending" className="text-primary font-bold text-xs uppercase tracking-widest flex items-center gap-1.5 hover:opacity-80 transition-all border border-primary/20 px-5 py-2.5 rounded-2xl bg-primary/5 hover:bg-primary/10">
-            View Trending <ChevronRight size={14} />
+            {t('landing.viewTrending')} <ChevronRight size={14} />
           </a>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {finalFeatured.length === 0 ? (
             <div className="col-span-full py-16 px-6 bg-slate-900/20 border border-white/5 rounded-[2rem] text-center max-w-lg mx-auto w-full">
-              <p className="text-sm text-white/50 font-bold uppercase tracking-widest mb-1">Coming Soon</p>
-              <p className="text-[11px] text-white/30 uppercase tracking-wider">Our curated high-tier featured registry is currently being updated by platform directors.</p>
+              <p className="text-sm text-white/50 font-bold uppercase tracking-widest mb-1">{t('landing.comingSoon')}</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wider">{t('landing.curatedWillBeUpdated')}</p>
             </div>
           ) : (
             finalFeatured.map((celeb, idx) => (
@@ -253,21 +253,21 @@ export const LandingPage = () => {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-ping" />
-              <span className="text-[10px] uppercase font-black tracking-[0.25em] text-orange-500">Popularity Vector</span>
+              <span className="text-[10px] uppercase font-black tracking-[0.25em] text-orange-500">{t('landing.popularityVector')}</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight italic">Trending Icons</h2>
-            <p className="text-white/40 mt-1 uppercase text-xs font-bold tracking-widest">Global trendsetters with active reservations currently ongoing</p>
+            <h2 className="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight italic">{t('landing.trendingTitle')}</h2>
+            <p className="text-white/40 mt-1 uppercase text-xs font-bold tracking-widest">{t('landing.trendingSubtitle')}</p>
           </div>
           <a href="#featured" className="text-white/60 font-bold text-xs uppercase tracking-widest flex items-center gap-1.5 hover:opacity-100 transition-all border border-white/10 px-5 py-2.5 rounded-2xl hover:bg-white/5">
-            Back to Featured
+            {t('landing.backToFeatured')}
           </a>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {finalTrending.length === 0 ? (
             <div className="col-span-full py-16 px-6 bg-slate-900/20 border border-white/5 rounded-[2rem] text-center max-w-lg mx-auto w-full">
-              <p className="text-sm text-white/50 font-bold uppercase tracking-widest mb-1">Coming Soon</p>
-              <p className="text-[11px] text-white/30 uppercase tracking-wider">Dynamic trending feeds are currently being calibrated to list high-engagement icons.</p>
+              <p className="text-sm text-white/50 font-bold uppercase tracking-widest mb-1">{t('landing.comingSoon')}</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wider">{t('landing.trendingWillBeUpdated')}</p>
             </div>
           ) : (
             finalTrending.map((celeb, idx) => (
@@ -285,7 +285,7 @@ export const LandingPage = () => {
               BOOK A <span className="text-primary italic uppercase underline decoration-primary/40">Celeb</span>
             </div>
             <p className="text-white/45 max-w-md text-sm font-medium leading-relaxed">
-              Bridging the gap between verified global icons and dedicated worldwide fans through secure escrow bank protocols, immutable custom smart referral flows, and premium face-to-face video consultation settings.
+              {t('landing.footerText')}
             </p>
             <div className="flex gap-4 pt-2">
               {['Instagram', 'Telegram', 'TikTok'].map(s => (
@@ -294,30 +294,30 @@ export const LandingPage = () => {
             </div>
           </div>
           <div>
-            <h4 className="font-bold uppercase tracking-widest text-xs text-white/40 mb-8 font-mono">Platform Notes</h4>
+            <h4 className="font-bold uppercase tracking-widest text-xs text-white/40 mb-8 font-mono">{t('landing.platformNotes')}</h4>
             <ul className="space-y-4 font-bold text-sm text-white/50">
               <li>
                 <Link 
                   to="/admin/login" 
                   className="hover:text-primary transition-all uppercase tracking-widest text-[11px] font-bold opacity-60 hover:opacity-100"
                 >
-                  Celebrity Admin Portal
+                  {t('landing.adminPortal')}
                 </Link>
               </li>
             </ul>
           </div>
           <div>
-            <h4 className="font-bold uppercase tracking-widest text-xs text-white/40 mb-8 font-mono">Direct Support</h4>
+            <h4 className="font-bold uppercase tracking-widest text-xs text-white/40 mb-8 font-mono">{t('landing.directSupport')}</h4>
             <ul className="space-y-4 font-bold text-sm text-white/50">
-              <li><a href="#" className="hover:text-primary transition-all">Root Help Center</a></li>
-              <li><a href="#" className="hover:text-primary transition-all">Escrow Safety Rules</a></li>
-              <li><a href="#" className="hover:text-primary transition-all">Platform Guidelines</a></li>
+              <li><a href="#" className="hover:text-primary transition-all">{t('landing.helpCenter')}</a></li>
+              <li><a href="#" className="hover:text-primary transition-all">{t('landing.escrowSafety')}</a></li>
+              <li><a href="#" className="hover:text-primary transition-all">{t('landing.platformGuidelines')}</a></li>
             </ul>
           </div>
         </div>
         
         <div className="max-w-7xl mx-auto pt-10 flex flex-col md:flex-row justify-between items-center text-white/30 text-xs gap-4">
-          <p>© 2026 BOOK A CELEBRITY ROOT PLATFORM. ALL PRIVILEGES SECURED.</p>
+          <p>{t('landing.copyright')}</p>
         </div>
       </footer>
     </div>
@@ -326,6 +326,7 @@ export const LandingPage = () => {
 
 const CelebrityCard = ({ celeb, currencySymbol, isTrending }: any) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleAction = (e: React.MouseEvent) => {
@@ -356,7 +357,7 @@ const CelebrityCard = ({ celeb, currencySymbol, isTrending }: any) => {
               ? 'bg-orange-500/90 text-white border-orange-400/20' 
               : 'bg-primary/90 text-black border-primary/20'
           }`}>
-            {isTrending ? 'Trending' : 'Curated'}
+            {isTrending ? t('landing.cardTrending', 'Trending') : t('landing.cardCurated', 'Curated')}
           </span>
         </div>
         {celeb.country && (
@@ -376,20 +377,20 @@ const CelebrityCard = ({ celeb, currencySymbol, isTrending }: any) => {
             </div>
           </div>
           <p className="text-white/40 text-sm font-medium line-clamp-2 italic mb-6">
-            "{celeb.bio || 'High-end consultation and private elite fan card options.'}"
+            "{celeb.bio || t('booking.reasonPlaceholder', 'High-end consultation and private elite fan card options.')}"
           </p>
         </div>
 
         <div className="space-y-6">
           <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
             <div className="text-left">
-              <p className="text-[9px] uppercase font-mono tracking-widest text-white/30">Consultation Rate</p>
+              <p className="text-[9px] uppercase font-mono tracking-widest text-white/30">{t('landing.cardConsultationRate', 'Consultation Rate')}</p>
               <p className="text-xl font-display font-extrabold text-white flex items-center gap-0.5 mt-0.5">
                 <span className="text-primary">{currencySymbol}</span>{celeb.bookingPrice || '0'}<span className="text-[10px] text-white/30 font-medium">/hr</span>
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[9px] uppercase font-mono tracking-widest text-white/30">Fan Membership</p>
+              <p className="text-[9px] uppercase font-mono tracking-widest text-white/30">{t('landing.cardFanMembership', 'Fan Membership')}</p>
               <p className="text-xl font-display font-extrabold text-white flex items-center gap-0.5 mt-0.5 justify-end">
                 <span className="text-primary">{currencySymbol}</span>{celeb.fanCardPrice || '0'}
               </p>
@@ -399,32 +400,32 @@ const CelebrityCard = ({ celeb, currencySymbol, isTrending }: any) => {
           <div className="flex flex-col gap-3">
             {user ? (
               <Link to={`/book/${celeb.id}`} className="w-full py-4 bg-primary text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.01] transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20">
-                Book Appointment
+                {t('landing.cardBookAppt', 'Book Appointment')}
               </Link>
             ) : (
               <button onClick={handleAction} className="w-full py-4 bg-primary text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.01] transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20">
-                Book Appointment
+                {t('landing.cardBookAppt', 'Book Appointment')}
               </button>
             )}
             
             <div className="grid grid-cols-2 gap-3">
               {user ? (
                 <Link to={`/donate/${celeb.id}`} className="py-3 bg-slate-900 border border-white/5 text-white/80 rounded-2xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-slate-850 hover:text-white transition-all">
-                  <Compass size={12} className="text-primary" /> Support VIP
+                  <Compass size={12} className="text-primary" /> {t('dashboard.donateText', 'Support VIP')}
                 </Link>
               ) : (
                 <button onClick={handleAction} className="py-3 bg-slate-900 border border-white/5 text-white/80 rounded-2xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-slate-850 hover:text-white transition-all">
-                  <Compass size={12} className="text-primary" /> Support VIP
+                  <Compass size={12} className="text-primary" /> {t('dashboard.donateText', 'Support VIP')}
                 </button>
               )}
 
               {user ? (
                 <Link to={`/fan-card/${celeb.id}`} className="py-3 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-white/5 transition-all text-white/60 hover:text-white">
-                  <Star size={12} className="text-primary" /> Fan Card
+                  <Star size={12} className="text-primary" /> {t('dashboard.managePass', 'Fan Card')}
                 </Link>
               ) : (
                 <button onClick={handleAction} className="py-3 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-white/5 transition-all text-white/60 hover:text-white">
-                  <Star size={12} className="text-primary" /> Fan Card
+                  <Star size={12} className="text-primary" /> {t('dashboard.managePass', 'Fan Card')}
                 </button>
               )}
             </div>

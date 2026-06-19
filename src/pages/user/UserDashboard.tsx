@@ -141,7 +141,7 @@ export const UserDashboard = () => {
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-wider rounded-full flex items-center gap-1">
-                <Crown size={10} /> VIP Pass Holder
+                <Crown size={10} /> {t('dashboard.vipPassHolder', 'VIP Pass Holder')}
               </span>
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             </div>
@@ -149,15 +149,15 @@ export const UserDashboard = () => {
               {t('dashboard.vipTitle')}
             </h1>
             <p className="text-white/40 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-1 flex flex-wrap items-center gap-1 max-w-full">
-              <span>Verified Fan Profile Key:</span> 
+              <span>{t('dashboard.verifiedFanProfileKey', 'Verified Fan Profile Key:')}</span> 
               <span className="text-white font-mono break-all truncate max-w-[200px] sm:max-w-xs">{user?.displayName || user?.email || 'N/A'}</span>
             </p>
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <div className="text-right hidden md:block">
-              <p className="text-[10px] uppercase font-black tracking-widest opacity-40">System Status</p>
-              <p className="text-xs font-mono font-bold text-emerald-400">Escrow Securely Active</p>
+              <p className="text-[10px] uppercase font-black tracking-widest opacity-40">{t('dashboard.systemStatus', 'System Status')}</p>
+              <p className="text-xs font-mono font-bold text-emerald-400">{t('dashboard.escrowActive', 'Escrow Securely Active')}</p>
             </div>
             <div className="h-10 w-px bg-white/10 hidden md:block" />
             <div className="flex gap-2 shrink-0">
@@ -191,7 +191,7 @@ export const UserDashboard = () => {
                   alt={celeb.celebName}
                 />
                 <div className="absolute top-4 right-4 bg-[#020512]/80 backdrop-blur-md px-3.5 py-1.5 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-wider rounded-xl flex items-center gap-1.5 shadow-xl">
-                  <Star size={10} className="fill-primary text-primary" /> Active Link
+                  <Star size={10} className="fill-primary text-primary" /> {t('dashboard.activeLink', 'Active Link')}
                 </div>
               </div>
 
@@ -293,23 +293,23 @@ export const UserDashboard = () => {
             </motion.div>
           </div>
         ) : (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass rounded-[3rem] p-8 md:p-16 text-center mb-12 border border-white/5 relative overflow-hidden bg-[#0a0f28]/35"
-          >
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
-            
-            <span className="px-4 py-1.5 bg-primary/10 text-primary rounded-full text-[10px] text-primary font-mono tracking-widest uppercase border border-primary/20 inline-block mb-4">
-              Awaiting Celebrity Link
-            </span>
-            
-            <h2 className="text-2xl sm:text-4xl font-display font-black mb-2 italic uppercase text-white tracking-tighter">
-              Quick Connect to a Celebrity
-            </h2>
-            <p className="text-white/45 max-w-xl mx-auto font-medium text-xs sm:text-sm mb-8 leading-relaxed">
-              Select any of our premium verified celebrities below to connect with their concierge atrium. This will instantly activate live direct chat, custom AI suggested option panels, VIP membership cards, and real-time custom booking slots.
-            </p>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass rounded-[3rem] p-8 md:p-16 text-center mb-12 border border-white/5 relative overflow-hidden bg-[#0a0f28]/35"
+            >
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
+              
+              <span className="px-4 py-1.5 bg-primary/10 text-primary rounded-full text-[10px] text-primary font-mono tracking-widest uppercase border border-primary/20 inline-block mb-4">
+                {t('dashboard.awaitingLink', 'Awaiting Celebrity Link')}
+              </span>
+              
+              <h2 className="text-2xl sm:text-4xl font-display font-black mb-2 italic uppercase text-white tracking-tighter">
+                {t('dashboard.quickConnectTitle', 'Quick Connect to a Celebrity')}
+              </h2>
+              <p className="text-white/45 max-w-xl mx-auto font-medium text-xs sm:text-sm mb-8 leading-relaxed">
+                {t('dashboard.quickConnectHelp', 'Select any of our premium verified celebrities below to connect with their concierge atrium. This will instantly activate live direct chat, custom AI suggested option panels, VIP membership cards, and real-time custom booking slots.')}
+              </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto text-left">
               {(availableCelebs.length > 0 ? availableCelebs : [
@@ -331,7 +331,7 @@ export const UserDashboard = () => {
                       onClick={() => handleConnectCeleb(c.id)}
                       className="mt-1.5 px-3 py-1 bg-primary text-black text-[9px] font-black uppercase tracking-widest rounded-lg hover:scale-105 transition-all text-center inline-block cursor-pointer hover:bg-white"
                     >
-                      Connect VIP ↗
+                      {t('dashboard.connectVipBtn', 'Connect VIP ↗')}
                     </button>
                   </div>
                 </div>
@@ -353,10 +353,10 @@ export const UserDashboard = () => {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6 min-w-0">
               <h3 className="text-sm sm:text-base md:text-lg font-black flex items-center gap-2 italic uppercase tracking-wider text-white min-w-0 flex-1">
                 <Calendar size={16} className="text-primary shrink-0"/>
-                <span className="truncate" title="Booking Matrix Status">Booking Matrix Status</span>
+                <span className="truncate" title={t('dashboard.bookingStatusTitle', 'Booking Matrix Status')}>{t('dashboard.bookingStatusTitle', 'Booking Matrix Status')}</span>
               </h3>
               <span className="text-[9px] sm:text-[10px] font-mono font-bold bg-white/5 px-2.5 py-1 rounded border border-white/5 text-white/40 self-start sm:self-auto shrink-0">
-                {bookings.length} Events Total
+                {bookings.length} {t('dashboard.eventsTotal', 'Events Total')}
               </span>
             </div>
             
@@ -399,7 +399,7 @@ export const UserDashboard = () => {
                 </div>
               )) : (
                 <div className="py-12 text-center rounded-2xl border border-dashed border-white/5 bg-black/10">
-                  <p className="text-white/20 text-xs font-bold uppercase tracking-widest">No Active Bookings Configured</p>
+                  <p className="text-white/20 text-xs font-bold uppercase tracking-widest">{t('dashboard.noBookings', 'No Active Bookings Configured')}</p>
                 </div>
               )}
             </div>
@@ -415,10 +415,10 @@ export const UserDashboard = () => {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6 min-w-0">
               <h3 className="text-sm sm:text-base md:text-lg font-black flex items-center gap-2 italic uppercase tracking-wider text-white min-w-0 flex-1">
                 <Heart size={16} className="text-primary shrink-0"/>
-                <span className="truncate" title="Verified Global Contributions">Verified Global Contributions</span>
+                <span className="truncate" title={t('dashboard.contributionsTitle', 'Verified Global Contributions')}>{t('dashboard.contributionsTitle', 'Verified Global Contributions')}</span>
               </h3>
               <span className="text-[9px] sm:text-[10px] font-mono font-bold bg-white/5 px-2.5 py-1 rounded border border-white/5 text-white/40 self-start sm:self-auto shrink-0">
-                {donations.length} Contributions
+                {donations.length} {t('donation.proofMeta', 'Contributions')}
               </span>
             </div>
 
@@ -463,7 +463,7 @@ export const UserDashboard = () => {
                 </div>
               )) : (
                 <div className="py-12 text-center rounded-2xl border border-dashed border-white/5 bg-black/10">
-                  <p className="text-white/20 text-xs font-bold uppercase tracking-widest">No verified contribution snapshot found</p>
+                  <p className="text-white/20 text-xs font-bold uppercase tracking-widest">{t('dashboard.noDonations', 'No verified contribution snapshot found')}</p>
                 </div>
               )}
             </div>
@@ -500,8 +500,8 @@ export const UserDashboard = () => {
                       ★
                     </div>
                     <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-white leading-none">Backstage Gate</h4>
-                      <span className="text-[9px] text-white/40 font-bold uppercase tracking-widest">VIP NAVIGATION</span>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-white leading-none">{t('dashboard.sidebarTitle', 'Backstage Gate')}</h4>
+                      <span className="text-[9px] text-white/40 font-bold uppercase tracking-widest">{t('dashboard.vipNavigation', 'VIP NAVIGATION')}</span>
                     </div>
                   </div>
                   <button
@@ -522,7 +522,7 @@ export const UserDashboard = () => {
                     className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-white/[0.01] hover:bg-primary/10 border border-white/5 hover:border-primary/20 rounded-xl text-left text-xs font-bold uppercase tracking-wider text-white hover:text-primary transition-all group cursor-pointer"
                   >
                     <Home size={15} className="text-white/50 group-hover:text-primary transition-all" />
-                    <span>Dashboard</span>
+                    <span>{t('nav.dashboard', 'Dashboard')}</span>
                   </button>
 
                   <button
@@ -533,7 +533,7 @@ export const UserDashboard = () => {
                     className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-white/[0.01] hover:bg-primary/10 border border-white/5 hover:border-primary/20 rounded-xl text-left text-xs font-bold uppercase tracking-wider text-white hover:text-primary transition-all group cursor-pointer"
                   >
                     <Calendar size={15} className="text-white/50 group-hover:text-primary transition-all" />
-                    <span>My Bookings</span>
+                    <span>{t('dashboard.myBookingsBtn', 'My Bookings')}</span>
                   </button>
 
                   <Link
@@ -541,14 +541,14 @@ export const UserDashboard = () => {
                     onClick={(e) => {
                       if (!celeb) {
                         e.preventDefault();
-                        alert('Connect with a verified creator referral string first.');
+                        alert(t('error.connectFirst', 'Connect with a verified creator referral string first.'));
                       }
                       setIsMobileMenuOpen(false);
                     }}
                     className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-white/[0.01] hover:bg-primary/10 border border-white/5 hover:border-primary/20 rounded-xl text-left text-xs font-bold uppercase tracking-wider text-white hover:text-primary decoration-transparent transition-all group flex"
                   >
                     <CreditCard size={15} className="text-white/50 group-hover:text-primary transition-all" />
-                    <span>Fan Cards</span>
+                    <span>{t('nav.fanCards', 'Fan Cards')}</span>
                   </Link>
 
                   <Link
@@ -556,14 +556,14 @@ export const UserDashboard = () => {
                     onClick={(e) => {
                       if (!celeb) {
                         e.preventDefault();
-                        alert('Connect with a verified creator referral string first.');
+                        alert(t('error.connectFirst', 'Connect with a verified creator referral string first.'));
                       }
                       setIsMobileMenuOpen(false);
                     }}
                     className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-white/[0.01] hover:bg-primary/10 border border-white/5 hover:border-primary/20 rounded-xl text-left text-xs font-bold uppercase tracking-wider text-white hover:text-primary decoration-transparent transition-all group flex"
                   >
                     <Heart size={15} className="text-white/50 group-hover:text-primary transition-all" />
-                    <span>Donations</span>
+                    <span>{t('nav.donations', 'Donations')}</span>
                   </Link>
 
                   <button
@@ -574,7 +574,7 @@ export const UserDashboard = () => {
                     className="w-full flex items-center gap-3.5 px-4 py-3.5 bg-white/[0.01] hover:bg-primary/10 border border-white/5 hover:border-primary/20 rounded-xl text-left text-xs font-bold uppercase tracking-wider text-white hover:text-primary transition-all group cursor-pointer"
                   >
                     <ShieldCheck size={15} className="text-white/50 group-hover:text-primary transition-all" />
-                    <span>Contact Support</span>
+                    <span>{t('nav.contactSupport', 'Contact Support')}</span>
                   </button>
                 </nav>
               </div>
@@ -582,7 +582,7 @@ export const UserDashboard = () => {
               {/* Footer */}
               <div className="space-y-4 min-w-0">
                 <div className="p-4 bg-white/[2%] border border-white/5 rounded-2xl text-left min-w-0">
-                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Fan Passholder</p>
+                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">{t('dashboard.vipPassHolder', 'Fan Passholder')}</p>
                   <p className="text-xs font-black text-white truncate" title={user?.displayName || ''}>{user?.displayName || 'Anonymous'}</p>
                   <p className="text-[9px] text-slate-500 font-mono mt-1 truncate" title={user?.email || ''}>{user?.email}</p>
                 </div>
@@ -600,7 +600,7 @@ export const UserDashboard = () => {
                   }}
                   className="w-full py-3.5 bg-red-500/10 hover:bg-red-500 border border-red-500/20 hover:text-black rounded-xl text-red-500 transition-all font-black uppercase text-xs tracking-widest flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <LogOut size={13} /> Log Out Pass
+                  <LogOut size={13} /> {t('nav.logout', 'Log Out Pass')}
                 </button>
               </div>
             </motion.div>
@@ -628,7 +628,7 @@ export const UserDashboard = () => {
               <div className="flex justify-between items-center pb-4 border-b border-white/5">
                 <div className="flex items-center gap-2 text-primary">
                   <LifeBuoy size={20} />
-                  <h3 className="text-lg font-black uppercase tracking-tight italic text-white">Backstage VIP Support FAQ</h3>
+                  <h3 className="text-lg font-black uppercase tracking-tight italic text-white">{t('dashboard.supportFaqTitle', 'Backstage VIP Support FAQ')}</h3>
                 </div>
                 <button
                   onClick={() => setIsSupportOpen(false)}
@@ -641,19 +641,19 @@ export const UserDashboard = () => {
               <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
                 {[
                   {
-                    q: "How does the secure booking system work?",
-                    a: "All payment bookings are kept safe. Funds are only sent after your request/event is completed successfully. Your deposit is 100% secure."
+                    q: t('faq.bookingQ', "How does the secure booking system work?"),
+                    a: t('faq.bookingA', "All payment bookings are kept safe. Funds are only sent after your request/event is completed successfully. Your deposit is 100% secure.")
                   },
                   {
-                    q: "What benefits do I get with higher Fan Card plans?",
-                    a: "Higher plans unlock direct chat with your favored stars, priority booking queues, autographed cards, and exclusive backstage options."
+                    q: t('faq.perksQ', "What benefits do I get with higher Fan Card plans?"),
+                    a: t('faq.perksA', "Higher plans unlock direct chat with your favored stars, priority booking queues, autographed cards, and exclusive backstage options.")
                   },
                   {
-                    q: "Can I get a refund if the creator cancels?",
-                    a: "Yes! If a creator cancels or does not accept your request within 7 business days, your payment will be refunded in full immediately."
+                    q: t('faq.refundQ', "Can I get a refund if the creator cancels?"),
+                    a: t('faq.refundA', "Yes! If a creator cancels or does not accept your request within 7 business days, your payment will be refunded in full immediately.")
                   }
                 ].map((faq, idx) => (
-                  <div key={idx} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-1.5">
+                  <div key={idx} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-1.5 align-left">
                     <h4 className="text-xs font-black uppercase tracking-wider text-primary">{faq.q}</h4>
                     <p className="text-white/50 text-xs leading-relaxed font-medium">{faq.a}</p>
                   </div>
@@ -686,28 +686,28 @@ export const UserDashboard = () => {
               </div>
               <div className="space-y-2">
                 <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-wider rounded-full inline-block">
-                  Direct Support Protocol
+                  {t('support.directSupportProtocol', 'Direct Support Protocol')}
                 </span>
-                <h3 className="text-2xl font-black uppercase tracking-tight italic text-white">Contact Support</h3>
+                <h3 className="text-2xl font-black uppercase tracking-tight italic text-white">{t('nav.contactSupport', 'Contact Support')}</h3>
                 <p className="text-xs text-white/40 font-bold uppercase tracking-wider leading-relaxed">
-                  Select an authenticated channel below configured by {celeb?.celebName || 'your artist'} to communicate directly on third-party secure systems:
+                  {t('support.configuredBy', 'Select an authenticated channel below configured by your artist to communicate directly on third-party secure systems:')}
                 </p>
               </div>
 
               {/* Grid of config links */}
               <div className="space-y-3">
                 {[
-                  { name: 'WhatsApp Direct', value: celeb?.waLink, icon: <MessageSquare size={16} className="text-emerald-400" />, color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' },
-                  { name: 'Telegram Link', value: celeb?.tgLink, icon: <Send size={16} className="text-blue-400" />, color: 'border-blue-500/20 bg-blue-500/5 text-blue-300' },
-                  { name: 'Instagram VIP', value: celeb?.instaLink, icon: <Instagram size={16} className="text-pink-400" />, color: 'border-pink-500/20 bg-pink-500/5 text-pink-300' },
-                  { name: 'TikTok Feed', value: celeb?.tiktokLink, icon: <Sparkles size={16} className="text-red-400" />, color: 'border-red-500/20 bg-red-500/5 text-red-300' }
+                  { name: t('contact.whatsappLine', 'WhatsApp Secure Line'), value: celeb?.waLink, icon: <MessageSquare size={16} className="text-emerald-400" />, color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' },
+                  { name: t('contact.telegramAlias', 'Telegram Channel/Alias'), value: celeb?.tgLink, icon: <Send size={16} className="text-blue-400" />, color: 'border-blue-500/20 bg-blue-500/5 text-blue-300' },
+                  { name: t('contact.instagramHandle', 'Instagram VIP Handle'), value: celeb?.instaLink, icon: <Instagram size={16} className="text-pink-400" />, color: 'border-pink-500/20 bg-pink-500/5 text-pink-300' },
+                  { name: t('contact.tiktokStream', 'TikTok Public Stream'), value: celeb?.tiktokLink, icon: <Sparkles size={16} className="text-red-400" />, color: 'border-red-500/20 bg-red-500/5 text-red-300' }
                 ].filter(item => !!item.value && item.value.trim() !== '').length > 0 ? (
                   <div className="grid grid-cols-1 gap-3 text-left">
                     {[
-                      { name: 'WhatsApp Direct', value: celeb?.waLink, icon: <MessageSquare size={16} className="text-emerald-400" />, color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' },
-                      { name: 'Telegram Link', value: celeb?.tgLink, icon: <Send size={16} className="text-blue-400" />, color: 'border-blue-500/20 bg-blue-500/5 text-blue-300' },
-                      { name: 'Instagram VIP', value: celeb?.instaLink, icon: <Instagram size={16} className="text-pink-400" />, color: 'border-pink-500/20 bg-pink-500/5 text-pink-300' },
-                      { name: 'TikTok Feed', value: celeb?.tiktokLink, icon: <Sparkles size={16} className="text-red-405" />, color: 'border-red-500/20 bg-red-500/5 text-red-300' }
+                      { name: t('contact.whatsappLine', 'WhatsApp Secure Line'), value: celeb?.waLink, icon: <MessageSquare size={16} className="text-emerald-400" />, color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' },
+                      { name: t('contact.telegramAlias', 'Telegram Channel/Alias'), value: celeb?.tgLink, icon: <Send size={16} className="text-blue-400" />, color: 'border-blue-500/20 bg-blue-500/5 text-blue-300' },
+                      { name: t('contact.instagramHandle', 'Instagram VIP Handle'), value: celeb?.instaLink, icon: <Instagram size={16} className="text-pink-400" />, color: 'border-pink-500/20 bg-pink-500/5 text-pink-300' },
+                      { name: t('contact.tiktokStream', 'TikTok Public Stream'), value: celeb?.tiktokLink, icon: <Sparkles size={16} className="text-red-400" />, color: 'border-red-500/20 bg-red-500/5 text-red-300' }
                     ].filter(item => !!item.value && item.value.trim() !== '').map((item, id) => {
                       const isUrl = item.value.startsWith('http://') || item.value.startsWith('https://');
                       const linkHref = isUrl ? item.value : `https://${item.value}`;
@@ -730,9 +730,9 @@ export const UserDashboard = () => {
                   </div>
                 ) : (
                   <div className="p-6 border border-dashed border-white/10 rounded-2xl bg-black/20 text-center space-y-2">
-                    <p className="text-xs font-bold text-white/30 uppercase tracking-widest">No Active Channels Configured</p>
+                    <p className="text-xs font-bold text-white/30 uppercase tracking-widest">{t('contact.noLinksTitle', 'No Active Channels Configured')}</p>
                     <p className="text-[10px] text-white/20 uppercase tracking-wider leading-relaxed">
-                      Your connected celebrity has not initialized their private contact channels. Use the direct live chat window at the bottom-right of your screen instead.
+                      {t('contact.noSupportChannelsHelp', 'Your connected creator has not initialized their private contact channels.')}
                     </p>
                   </div>
                 )}
@@ -742,7 +742,7 @@ export const UserDashboard = () => {
                 onClick={() => setIsContactSupportOpen(false)}
                 className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-black uppercase tracking-widest border border-white/10 transition-all cursor-pointer"
               >
-                Return to Lounge
+                {t('support.returnToLounge', 'Return to Lounge')}
               </button>
             </motion.div>
           </div>

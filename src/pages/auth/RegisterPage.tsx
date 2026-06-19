@@ -6,8 +6,10 @@ import { auth, db } from '../../lib/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getFriendlyRegisterError } from '../../lib/authErrors';
 import { AuthLockScreen } from '../../components/AuthLockScreen';
+import { useLanguage } from '../../context/LanguageContext';
 
 export const RegisterPage = () => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -110,15 +112,15 @@ export const RegisterPage = () => {
         className="glass w-full max-w-xl p-10 md:p-14 rounded-[3rem] shadow-2xl relative z-10 border border-white/5"
       >
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-display font-bold mb-3 tracking-tighter uppercase underline decoration-primary/30 text-white">Join the Circle</h1>
-          <p className="text-white/40">Experience the world's most elite celebrity connection platform.</p>
+          <h1 className="text-4xl font-display font-bold mb-3 tracking-tighter uppercase underline decoration-primary/30 text-white">{t('auth.joinCircle', 'Join the Circle')}</h1>
+          <p className="text-white/40">{t('auth.joinSubtitle', "Experience the world's most elite celebrity connection platform.")}</p>
         </div>
 
         {referredCelebName && (
           <div className="mb-8 p-4 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center gap-2">
             <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
             <p className="text-xs font-black uppercase tracking-widest text-primary leading-none">
-              Referred by {referredCelebName}
+              {t('auth.referredBy', 'Referred by')} {referredCelebName}
             </p>
           </div>
         )}
@@ -126,19 +128,19 @@ export const RegisterPage = () => {
         <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2">
             <label className="block text-xs font-bold uppercase tracking-widest mb-2 opacity-60 text-white/60">
-              Full Name
+              {t('auth.fullNameLabel', 'Full Name')}
             </label>
             <input 
               type="text" 
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-primary/50 transition-all font-medium text-white"
-              placeholder="e.g. Leonardo DiCaprio"
+              placeholder={t('auth.fullNamePlaceholder', 'e.g. Leonardo DiCaprio')}
               required
             />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-widest mb-2 opacity-60 text-white/60">Email Address</label>
+            <label className="block text-xs font-bold uppercase tracking-widest mb-2 opacity-60 text-white/60">{t('auth.emailLabel', 'Email Address')}</label>
             <input 
               type="email" 
               value={formData.email}
@@ -149,7 +151,7 @@ export const RegisterPage = () => {
             />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-widest mb-2 opacity-60 text-white/60">Security Password</label>
+            <label className="block text-xs font-bold uppercase tracking-widest mb-2 opacity-60 text-white/60">{t('auth.passwordLabel', 'Security Password')}</label>
             <input 
               type="password" 
               value={formData.password}
@@ -167,14 +169,14 @@ export const RegisterPage = () => {
               disabled={loading}
               className="w-full py-5 bg-primary text-black rounded-2xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] transition-all disabled:opacity-50"
             >
-              {loading ? 'Creating Invitation...' : 'Create Account'}
+              {loading ? t('auth.creatingInvitation', 'Creating Invitation...') : t('auth.createAccount', 'Create Account')}
             </button>
           </div>
         </form>
 
         <div className="mt-8 text-center text-sans">
           <p className="text-sm text-white/40 font-medium">
-            Already registered? <Link to="/login" className="text-white hover:underline font-bold">Sign In</Link>
+            {t('auth.alreadyHaveAccount', 'Already registered?')} <Link to="/login" className="text-white hover:underline font-bold">{t('auth.signIn', 'Sign In')}</Link>
           </p>
         </div>
       </motion.div>

@@ -4,11 +4,13 @@ import { motion } from 'motion/react';
 import { db } from '../../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { MessageSquare, Phone, Instagram, Send, Play, ArrowLeft, ShieldAlert, Sparkles, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export const ContactCelebrityPage = () => {
   const { celebId } = useParams<{ celebId: string }>();
   const [celeb, setCeleb] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!celebId) return;
@@ -64,34 +66,34 @@ export const ContactCelebrityPage = () => {
   // Generate lists of available channels
   const socialChannels = [
     {
-      name: 'WhatsApp Secure Line',
+      name: t('contact.whatsappLine', 'WhatsApp Secure Line'),
       value: celeb.waLink,
       icon: <Phone size={20} className="text-emerald-400" />,
-      desc: 'Send instant media attachments or direct voice prompts.',
+      desc: t('contact.privateDetailsUnlocked', 'Send instant media attachments or direct voice prompts.'),
       color: 'hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]',
       tag: 'DIRECT WA'
     },
     {
-      name: 'Telegram Channel/Alias',
+      name: t('contact.telegramAlias', 'Telegram Channel/Alias'),
       value: celeb.tgLink,
       icon: <Send size={20} className="text-blue-400" />,
-      desc: 'Join custom broadcast feeds or communicate securely.',
+      desc: t('contact.privateDetailsUnlocked', 'Join custom broadcast feeds or communicate securely.'),
       color: 'hover:border-blue-500/30 hover:bg-blue-500/[0.02]',
       tag: 'TELEGRAM'
     },
     {
-      name: 'Instagram VIP Handle',
+      name: t('contact.instagramHandle', 'Instagram VIP Handle'),
       value: celeb.instaLink,
       icon: <Instagram size={20} className="text-pink-400" />,
-      desc: 'Follow curated stories or send premium direct DMs.',
+      desc: t('contact.privateDetailsUnlocked', 'Follow curated stories or send premium direct DMs.'),
       color: 'hover:border-pink-500/30 hover:bg-pink-500/[0.02]',
       tag: 'INSTAGRAM'
     },
     {
-      name: 'TikTok Public Stream',
+      name: t('contact.tiktokStream', 'TikTok Public Stream'),
       value: celeb.tiktokLink,
       icon: <Play size={20} className="text-red-400" />,
-      desc: 'Watch real-time micro-broadcasts and backstage visual updates.',
+      desc: t('contact.privateDetailsUnlocked', 'Watch real-time micro-broadcasts and backstage visual updates.'),
       color: 'hover:border-red-500/30 hover:bg-red-500/[0.02]',
       tag: 'TIKTOK'
     }
@@ -111,7 +113,7 @@ export const ContactCelebrityPage = () => {
             to="/dashboard" 
             className="inline-flex items-center gap-2 text-white/40 hover:text-white text-xs font-black uppercase tracking-widest transition-all"
           >
-            <ArrowLeft size={14} className="text-primary" /> Back to Lounge
+            <ArrowLeft size={14} className="text-primary" /> {t('nav.dashboard', 'Back to Lounge')}
           </Link>
         </div>
 
@@ -126,13 +128,13 @@ export const ContactCelebrityPage = () => {
           </div>
           <div className="text-center md:text-left space-y-2">
             <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-wider rounded-full inline-block">
-              Direct Contact Channels
+              {t('contact.directChannels', 'Direct Contact Channels')}
             </span>
             <h1 className="text-3xl md:text-4xl font-display font-black tracking-tight uppercase italic text-white">
-              Connect With {celeb.celebName}
+              {t('contact.connectWith', 'Connect With')} {celeb.celebName}
             </h1>
             <p className="text-white/40 text-xs font-bold uppercase tracking-wider">
-              Private contact details unlocked by your active Fan Card.
+              {t('contact.privateDetailsUnlocked', 'Private contact details unlocked by your active Fan Card.')}
             </p>
           </div>
         </motion.div>
@@ -140,8 +142,8 @@ export const ContactCelebrityPage = () => {
         {/* Channels display */}
         <div className="space-y-6">
           <div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-white/45 italic">Unlocked Contact Links</h3>
-            <p className="text-[10px] text-white/30 uppercase tracking-widest font-black mt-1">Connect with the star directly through these social accounts</p>
+            <h3 className="text-sm font-black uppercase tracking-widest text-white/45 italic">{t('contact.unlockedLinks', 'Unlocked Contact Links')}</h3>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest font-black mt-1">{t('contact.connectDirectly', 'Connect with the star directly through these social accounts')}</p>
           </div>
 
           {socialChannels.length > 0 ? (
@@ -177,7 +179,7 @@ export const ContactCelebrityPage = () => {
                     <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-bold text-white/50 gap-2 min-w-0">
                       <span className="font-mono text-primary truncate min-w-0 flex-1">{ch.value}</span>
                       <span className="hover:text-primary transition-all text-[9px] uppercase font-black tracking-wider shrink-0 flex items-center gap-1">
-                        Access Tunnel ↗
+                        {t('contact.accessTunnel', 'Access Tunnel ↗')}
                       </span>
                     </div>
                   </motion.a>
@@ -187,9 +189,9 @@ export const ContactCelebrityPage = () => {
           ) : (
             <div className="py-20 text-center border border-dashed border-white/5 rounded-[2.5rem] bg-slate-900/10 space-y-3">
               <AlertCircle size={32} className="mx-auto text-white/20" />
-              <p className="text-white/30 text-xs font-black uppercase tracking-widest">No Direct Contact Links Configured</p>
+              <p className="text-white/30 text-xs font-black uppercase tracking-widest">{t('contact.noLinksTitle', 'No Direct Contact Links Configured')}</p>
               <p className="text-[10px] text-white/20 max-w-sm mx-auto font-bold uppercase tracking-wider leading-relaxed">
-                Your assigned celebrity hasn't set up active external secure channels yet. Send a direct real-time message through the backstage chat instead.
+                {t('contact.noLinksHelp', "Your assigned celebrity hasn't set up active external secure channels yet. Send a direct real-time message through the backstage chat instead.")}
               </p>
             </div>
           )}

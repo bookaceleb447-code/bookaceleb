@@ -950,7 +950,7 @@ export const FanCardPage = () => {
           onClick={() => navigate('/dashboard')} 
           className="mb-8 flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 hover:border-white/10 rounded-full text-xs font-black uppercase tracking-widest text-white/70 hover:text-white transition-all cursor-pointer"
         >
-          <ArrowLeft size={14} /> Back to Hub
+          <ArrowLeft size={14} /> {t('nav.backToHub', 'Back to Hub')}
         </button>
 
         <motion.div 
@@ -961,14 +961,14 @@ export const FanCardPage = () => {
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-wider rounded-full flex items-center gap-1">
-                <Crown size={10} /> Exclusive VIP Credentials
+                <Crown size={10} /> {t('fancard.exclusiveVipCredentials', 'Exclusive VIP Credentials')}
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-black tracking-tight uppercase italic text-white flex items-center gap-3">
-              Elite Fan Card Registry
+              {t('fancard.registryTitle', 'Elite Fan Card Registry')}
             </h1>
             <p className="text-white/40 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-1">
-              Verify identity & generate your permanent digital backstage access pass
+              {t('fancard.registrySubtitle', 'Verify identity & generate your permanent digital backstage access pass')}
             </p>
           </div>
         </motion.div>
@@ -985,41 +985,41 @@ export const FanCardPage = () => {
               <div className="lg:col-span-7 space-y-8">
                 <div className="space-y-3">
                   <span className="px-3 py-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider rounded-full inline-flex items-center gap-1.5 shadow-md shadow-emerald-500/5">
-                    <Crown size={11} className="text-[#dfb15b]" /> OFFICIAL VIP PROTOCOL ENGAGED
+                    <Crown size={11} className="text-[#dfb15b]" /> {t('fancard.protocolEngaged', 'OFFICIAL VIP PROTOCOL ENGAGED')}
                   </span>
                   <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-black tracking-tight uppercase italic text-white leading-none">
-                    My VIP Fan Card
+                    {t('fancard.myVipFanCard', 'My VIP Fan Card')}
                   </h2>
                   <p className="text-white/40 text-[10px] sm:text-xs font-bold uppercase tracking-widest leading-loose">
-                    Your digital credentials have been verified and approved by {celeb?.celebName || approvedMembership.celebName}'s management.
+                    {t('fancard.verifiedByManagement', "Your digital credentials have been verified and approved by your artist's management.")}
                   </p>
                 </div>
 
                 {/* Stately Stats Info Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-6 bg-white/[0.02] border border-white/5 rounded-3xl p-6">
                   <div>
-                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">Cardholder Name</span>
+                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">{t('fancard.cardholderName', 'Cardholder Name')}</span>
                     <p className="text-sm font-black text-white uppercase tracking-tight mt-1 truncate">{approvedMembership.fanName}</p>
                   </div>
                   <div>
-                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">Membership Tier</span>
+                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">{t('fancard.membershipTier', 'Membership Tier')}</span>
                     <p className="text-sm font-black text-[#dfb15b] uppercase tracking-tight mt-1">{approvedMembership.tierTitle}</p>
                   </div>
                   <div>
-                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">Registry ID</span>
+                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">{t('fancard.registryId', 'Registry ID')}</span>
                     <p className="text-sm font-mono text-white/80 tracking-normal mt-1 truncate">{approvedMembership.membershipCardId || approvedMembership.id.substring(0, 12).toUpperCase()}</p>
                   </div>
                   <div>
-                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">Authorized Since</span>
+                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">{t('fancard.authorizedSince', 'Authorized Since')}</span>
                     <p className="text-sm font-black text-white/90 tracking-tight mt-1">
                       {approvedMembership.createdAt?.toDate ? approvedMembership.createdAt.toDate().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'}) : new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'})}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">Status Level</span>
+                    <span className="text-[8px] text-white/30 uppercase font-black tracking-widest">{t('fancard.statusLevel', 'Status Level')}</span>
                     <div>
                       <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest rounded-md mt-1.5 inline-block">
-                        ACTIVE
+                        {t('fancard.active', 'ACTIVE')}
                       </span>
                     </div>
                   </div>
@@ -1027,7 +1027,7 @@ export const FanCardPage = () => {
 
                 {/* Privileges checklist */}
                 <div className="space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-[#dfb15b] border-b border-white/5 pb-2">Active Backstage Tier Perks & Experiences</h3>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-[#dfb15b] border-b border-white/5 pb-2">{t('fancard.activePerksTitle', 'Active Backstage Tier Perks & Experiences')}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activePerksAndFallback(approvedMembership.tier).map((p, i) => (
                       <div key={i} className="flex items-center gap-3 py-1 text-xs text-white/80">
@@ -1043,7 +1043,7 @@ export const FanCardPage = () => {
 
               {/* Right Column: Premium 3D Interactive Card Preview */}
               <div className="lg:col-span-5 flex flex-col items-center justify-center space-y-6">
-                <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mb-2">Interactive 3D Preview (Flip & View)</p>
+                <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mb-2">{t('fancard.interactive3d', 'Interactive 3D Preview (Flip & View)')}</p>
                 
                 {approvedMembership.fanCardImage ? (
                   // Custom uploaded celebrity card
@@ -1104,14 +1104,14 @@ export const FanCardPage = () => {
                       onClick={() => setIsFlipped(!isFlipped)}
                       className="flex-1 py-3 px-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 shadow-md"
                     >
-                      <RefreshCw size={14} className="animate-pulse" /> Flip Card View
+                      <RefreshCw size={14} className="animate-pulse" /> {t('fancard.flipCardView', 'Flip Card View')}
                     </button>
                   )}
                   <button 
                     onClick={() => handleDownload(approvedMembership)}
                     className="flex-1 py-3 px-5 bg-[#dfb15b] hover:bg-[#c99f50] text-black rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 shadow-lg shadow-amber-500/10"
                   >
-                    <Download size={14} /> Download Pass File
+                    <Download size={14} /> {t('fancard.downloadPassFile', 'Download Pass File')}
                   </button>
                 </div>
               </div>
@@ -1126,25 +1126,25 @@ export const FanCardPage = () => {
 
             <div className="space-y-3">
               <span className="px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[9px] font-black uppercase tracking-wider rounded-full inline-flex items-center gap-1.5 shadow-md shadow-amber-500/5">
-                <RefreshCw size={11} className="animate-spin-slow text-amber-400" /> VERIFICATION IN PROGRESS
+                <RefreshCw size={11} className="animate-spin-slow text-amber-400" /> {t('fancard.verificationInProgress', 'VERIFICATION IN PROGRESS')}
               </span>
               <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-tight text-white italic">
-                VIP Credentials Process Initiated
+                {t('fancard.credentialsInitiated', 'VIP Credentials Process Initiated')}
               </h2>
               <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-2xl text-amber-300 font-bold text-xs uppercase tracking-wider leading-relaxed max-w-lg mx-auto">
-                Thank you for your application! We are validating your payment receipt snapshot. Your interactive double-sided VIP Pass will unlock automatically as soon as verified by celebrity management.
+                {t('fancard.pendingNotice', 'Thank you for your application! We are validating your payment receipt snapshot. Your interactive double-sided VIP Pass will unlock automatically as soon as verified by celebrity management.')}
               </div>
             </div>
 
             {/* Show customizable card preview they submitted */}
             <div className="space-y-4">
-              <p className="text-white/40 text-[9.5px] font-black uppercase tracking-widest">SUBMITTED CARD SPECIFICATION</p>
+              <p className="text-white/40 text-[9.5px] font-black uppercase tracking-widest">{t('fancard.submittedSpecification', 'SUBMITTED CARD SPECIFICATION')}</p>
               
               <div className="perspective-1000 w-full max-w-[420px] aspect-[1.58] mx-auto relative text-left">
                 <div className="w-full h-full relative rounded-[2rem] overflow-hidden shadow-2xl opacity-75">
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 backdrop-blur-[2px] rounded-[2rem]">
                     <span className="px-5 py-2.5 border-2 border-amber-500/50 text-amber-400 font-extrabold tracking-[0.2em] text-xs uppercase rounded-2xl bg-black/90 rotate-[-12deg] shadow-2xl shadow-black/95">
-                      PENDING VERIFICATION
+                      {t('fancard.pendingVerification', 'PENDING VERIFICATION')}
                     </span>
                   </div>
                   
@@ -1174,8 +1174,8 @@ export const FanCardPage = () => {
               {step < 4 && (
                 <div className="mb-10">
                   <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-white/40 mb-4">
-                    <span>VIP CREDENTIAL PROTOCOL</span>
-                    <span className="text-primary">Step {step + 1} of 4</span>
+                    <span>{t('fancard.credentialProtocol', 'VIP CREDENTIAL PROTOCOL')}</span>
+                    <span className="text-primary">{t('fancard.stepText', 'Step')} {step + 1} {t('fancard.stepOf', 'of')} 4</span>
                   </div>
                   
                   {/* Progress Line */}
@@ -1200,10 +1200,10 @@ export const FanCardPage = () => {
                   >
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-tight italic text-white">
-                        Choose Membership Tier
+                        {t('fancard.chooseMembership', 'Choose Membership Tier')}
                       </h2>
                       <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">
-                        Select a verified backstage privileges plan
+                        {t('fancard.selectPrivilegesPlan', 'Select a verified backstage privileges plan')}
                       </p>
                     </div>
 
@@ -1220,14 +1220,14 @@ export const FanCardPage = () => {
                         >
                           {(tier.recommended || tier.badge) && (
                             <div className="absolute top-0 right-0 bg-[#dfb15b] text-black text-[8px] font-black uppercase px-4 py-1.5 rounded-bl-2xl tracking-[0.2em]">
-                              {tier.badge || 'Recommended'}
+                              {tier.badge || t('fancard.recommended', 'Recommended')}
                             </div>
                           )}
                           <div>
                             <h3 className={`text-md font-bold uppercase tracking-tight mb-2 ${selectedTier === tier.id ? 'text-[#dfb15b]' : 'text-white/50'}`}>{tier.title}</h3>
                             <div className="flex items-baseline gap-1 mb-6">
                               <span className="text-3xl font-display font-black tracking-tighter text-white">${tier.price}</span>
-                              <span className="text-[9px] font-bold opacity-30 uppercase text-white/40">/YR</span>
+                              <span className="text-[9px] font-bold opacity-30 uppercase text-white/40">/{t('fancard.yr', 'YR')}</span>
                             </div>
                             <ul className="space-y-2.5">
                               {tier.perks?.map((p: string) => (
@@ -1246,7 +1246,7 @@ export const FanCardPage = () => {
                         onClick={() => setStep(1)}
                         className="px-8 py-4 bg-[#dfb15b] hover:bg-[#c99f50] text-black rounded-xl font-black uppercase text-xs tracking-widest transition-all cursor-pointer shadow-xl active:scale-95 flex items-center gap-2"
                       >
-                        Continue to Identity Form
+                        {t('fancard.continueToIdentity', 'Continue to Identity Form')}
                       </button>
                     </div>
                   </motion.div>
@@ -1262,10 +1262,10 @@ export const FanCardPage = () => {
                   >
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-tight italic text-white">
-                        Account Verification Details
+                        {t('fancard.accountVerificationDetails', 'Account Verification Details')}
                       </h2>
                       <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">
-                        Please provide valid personal details for official register
+                        {t('fancard.providePersonalDetails', 'Please provide valid personal details for official register')}
                       </p>
                     </div>
 
@@ -1274,7 +1274,7 @@ export const FanCardPage = () => {
                       {/* Full Name */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase opacity-40 tracking-widest ml-1 text-white">
-                          Full Name (Legal)
+                          {t('fancard.fullNameLegal', 'Full Name (Legal)')}
                         </label>
                         <div className="relative">
                           <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
@@ -1282,7 +1282,7 @@ export const FanCardPage = () => {
                             value={fullName}
                             onChange={e => { setFullName(e.target.value); if(!cardName) setCardName(e.target.value); }}
                             className="w-full bg-black/40 border border-white/10 rounded-xl p-4 pl-12 font-bold text-white outline-none focus:border-[#dfb15b]/50 transition-all text-sm" 
-                            placeholder="e.g. Sarah Johnson" 
+                            placeholder={t('fancard.fullNamePlaceholderSample', 'e.g. Sarah Johnson')} 
                           />
                         </div>
                       </div>
@@ -1290,7 +1290,7 @@ export const FanCardPage = () => {
                       {/* Email Address */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase opacity-40 tracking-widest ml-1 text-white">
-                          Email Address
+                          {t('auth.emailLabel', 'Authorized Email Address')}
                         </label>
                         <div className="relative">
                           <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
@@ -1308,7 +1308,7 @@ export const FanCardPage = () => {
                         {/* Phone Number */}
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black uppercase opacity-40 tracking-widest ml-1 text-white">
-                            Phone Number
+                            {t('fancard.phoneNumber', 'Phone Number')}
                           </label>
                           <div className="relative">
                             <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
@@ -1325,7 +1325,7 @@ export const FanCardPage = () => {
                         {/* Date of birth */}
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black uppercase opacity-40 tracking-widest ml-1 text-white">
-                            Date of Birth
+                            {t('fancard.dob', 'Date of Birth')}
                           </label>
                           <div className="relative">
                             <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
@@ -1345,13 +1345,13 @@ export const FanCardPage = () => {
                         onClick={() => setStep(0)}
                         className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold uppercase text-[10px] tracking-wider transition-all"
                       >
-                        Back
+                        {t('common.back', 'Back')}
                       </button>
                       <button
                         onClick={() => { if(validateStep1()) setStep(2); }}
                         className="px-8 py-4 bg-[#dfb15b] hover:bg-[#c99f50] text-black rounded-xl font-black uppercase text-xs tracking-widest transition-all cursor-pointer shadow-xl active:scale-95"
                       >
-                        Pass Customization
+                        {t('fancard.passCustomization', 'Pass Customization')}
                       </button>
                     </div>
                   </motion.div>
@@ -1367,10 +1367,10 @@ export const FanCardPage = () => {
                   >
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-tight italic text-white">
-                        Card Customization & Photo
+                        {t('fancard.customizationTitle', 'Card Customization & Photo')}
                       </h2>
                       <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">
-                        Upload custom portrait style file and confirm card display name
+                        {t('fancard.customizationSubtitle', 'Upload custom portrait style file and confirm card display name')}
                       </p>
                     </div>
 
@@ -1380,13 +1380,13 @@ export const FanCardPage = () => {
                         {/* Display Name */}
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black uppercase opacity-40 tracking-widest ml-1 text-white">
-                            Name on Fan Card (Display Name)
+                            {t('fancard.cardDisplayName', 'Name on Fan Card (Display Name)')}
                           </label>
                           <input 
                             value={cardName}
                             onChange={e => setCardName(e.target.value)}
                             className="w-full bg-black/40 border border-white/10 rounded-xl p-4 font-bold text-white outline-none focus:border-[#dfb15b]/50 transition-all text-sm" 
-                            placeholder="e.g. Sarah J." 
+                            placeholder={t('fancard.displayNamePlaceholderSample', 'e.g. Sarah J.')} 
                             maxLength={28}
                           />
                         </div>
@@ -1394,19 +1394,19 @@ export const FanCardPage = () => {
                         {/* Portrait photo uploader */}
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black uppercase opacity-40 tracking-widest ml-1 text-white">
-                            Upload Portrait Photograph
+                            {t('fancard.uploadPortrait', 'Upload Portrait Photograph')}
                           </label>
                           <div className="h-44 rounded-2xl bg-black/40 border-2 border-dashed border-white/15 flex flex-col items-center justify-center text-center px-6 relative cursor-pointer hover:border-[#dfb15b]/50 transition-all group">
                             {photoPreview ? (
                               <div className="flex items-center gap-3">
                                 <CheckCircle size={20} className="text-primary" />
-                                <p className="text-primary font-black uppercase text-[10px] tracking-widest">Image Loaded! Click to Change</p>
+                                <p className="text-primary font-black uppercase text-[10px] tracking-widest">{t('fancard.imageLoaded', 'Image Loaded! Click to Change')}</p>
                               </div>
                             ) : (
                               <>
                                 <UploadCloud size={24} className="opacity-20 mb-2 group-hover:scale-110 transition-all text-white" />
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 text-white">Select Portrait Image</p>
-                                <p className="text-[8px] text-white/30 uppercase mt-1 leading-normal">Optimized for circles / square profiles</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 text-white">{t('fancard.selectPortraitImage', 'Select Portrait Image')}</p>
+                                <p className="text-[8px] text-white/30 uppercase mt-1 leading-normal">{t('fancard.optimizedForProfiles', 'Optimized for circles / square profiles')}</p>
                               </>
                             )}
                             <input 
@@ -1422,13 +1422,13 @@ export const FanCardPage = () => {
                       {/* Right Card Real-time Preview */}
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase opacity-40 tracking-widest text-[#dfb15b] block text-center">
-                          LIVE PREVIEW (Front Side)
+                          {t('fancard.livePreviewFront', 'LIVE PREVIEW (Front Side)')}
                         </label>
                         
                         {/* Static Front Card Preview layout */}
                         <div className="w-full aspect-[1.58] overflow-visible relative">
                           <VIPCardFront
-                            celebName={celeb?.celebName || 'Celebrity Sponsor'}
+                            celebName={celeb?.celebName || t('fancard.celebritySponsor', 'Celebrity Sponsor')}
                             fanName={cardName || 'SARAH JOHNSON'}
                             tierTitle={currentTier?.title || 'PLATINUM VIP'}
                             membershipCardId={membershipCardId}
@@ -1445,13 +1445,13 @@ export const FanCardPage = () => {
                         onClick={() => setStep(1)}
                         className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold uppercase text-[10px] tracking-wider transition-all"
                       >
-                        Back
+                        {t('common.back', 'Back')}
                       </button>
                       <button
                         onClick={() => { if(validateStep2()) setStep(3); }}
                         className="px-8 py-4 bg-[#dfb15b] hover:bg-[#c99f50] text-black rounded-xl font-black uppercase text-xs tracking-widest transition-all cursor-pointer shadow-xl active:scale-95"
                       >
-                        Payment Gateways
+                        {t('fancard.paymentGateways', 'Payment Gateways')}
                       </button>
                     </div>
                   </motion.div>
@@ -1467,19 +1467,19 @@ export const FanCardPage = () => {
                   >
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-tight italic text-white">
-                        Verification Payment Gateway
+                        {t('fancard.paymentGatewayTitle', 'Verification Payment Gateway')}
                       </h2>
                       <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">
-                        Settle fees to unlock permanent digital certificate issuance
+                        {t('fancard.paymentGatewaySubtitle', 'Settle fees to unlock permanent digital certificate issuance')}
                       </p>
                     </div>
 
                     {/* Payment Switchers */}
                     <div className="grid grid-cols-3 gap-2 sm:gap-3">
                       {[
-                        { id: 'bank', name: 'Bank Transfer', icon: <Landmark size={14} /> },
-                        { id: 'crypto', name: 'Crypto Wallet', icon: <Coins size={14} /> },
-                        { id: 'giftcard', name: 'Gift Card', icon: <Gift size={14} /> }
+                        { id: 'bank', name: t('booking.bankTransfer', 'Bank Transfer'), icon: <Landmark size={14} /> },
+                        { id: 'crypto', name: t('booking.cryptoWallet', 'Crypto Wallet'), icon: <Coins size={14} /> },
+                        { id: 'giftcard', name: t('booking.giftCard', 'Gift Card'), icon: <Gift size={14} /> }
                       ].map(method => (
                         <button
                           type="button"
@@ -1501,22 +1501,22 @@ export const FanCardPage = () => {
                     <div className="p-4 sm:p-6 bg-black/40 border border-white/10 rounded-2xl space-y-4">
                       {paymentMethod === 'bank' && (
                         <div className="space-y-3 text-sm text-left">
-                          <p className="text-[10px] uppercase font-black tracking-widest text-[#dfb15b]">Celebrity Sync Bank Details</p>
+                          <p className="text-[10px] uppercase font-black tracking-widest text-[#dfb15b]">{t('fancard.celebBankDetails', 'Celebrity Sync Bank Details')}</p>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold text-white/60">
                             <div>
-                              <span className="block opacity-45 uppercase text-[9px]">Bank Name</span>
-                              <span className="text-white font-bold">{celeb?.payoutBankName || 'Standard Global Bank'}</span>
+                              <span className="block opacity-45 uppercase text-[9px]">{t('fancard.bankName', 'Bank Name')}</span>
+                              <span className="text-white font-bold">{celeb?.payoutBankName || t('fancard.standardBank', 'Standard Global Bank')}</span>
                             </div>
                             <div>
-                              <span className="block opacity-45 uppercase text-[9px]">Account Name</span>
-                              <span className="text-white font-bold">{celeb?.payoutAccountName || 'Celebrity Agent Admin'}</span>
+                              <span className="block opacity-45 uppercase text-[9px]">{t('fancard.accountName', 'Account Name')}</span>
+                              <span className="text-white font-bold">{celeb?.payoutAccountName || t('fancard.celebAgentAdmin', 'Celebrity Agent Admin')}</span>
                             </div>
                             <div>
-                              <span className="block opacity-45 uppercase text-[9px]">Account Number</span>
+                              <span className="block opacity-45 uppercase text-[9px]">{t('fancard.accountNumber', 'Account Number')}</span>
                               <span className="text-[#dfb15b] font-mono font-bold text-sm tracking-wider">{celeb?.payoutAccountNo || '192-482-947-192'}</span>
                             </div>
                             <div>
-                              <span className="block opacity-45 uppercase text-[9px]">Routing/SWIFT CODE</span>
+                              <span className="block opacity-45 uppercase text-[9px]">{t('fancard.routingSwiftCode', 'Routing/SWIFT CODE')}</span>
                               <span className="text-white font-mono font-bold">{celeb?.payoutRoutingNo || celeb?.payoutSwiftCode || 'SWIFTGB22'}</span>
                             </div>
                           </div>
@@ -1525,14 +1525,14 @@ export const FanCardPage = () => {
 
                       {paymentMethod === 'crypto' && (
                         <div className="space-y-4 text-sm text-left">
-                          <p className="text-[10px] uppercase font-black tracking-widest text-[#dfb15b]">Celebrity Ledger Address</p>
+                          <p className="text-[10px] uppercase font-black tracking-widest text-[#dfb15b]">{t('fancard.celebLedgerAddress', 'Celebrity Ledger Address')}</p>
                           <div className="space-y-2 text-xs">
                             <div>
-                              <span className="block opacity-45 uppercase text-[9px]">Ledger Asset Network</span>
+                              <span className="block opacity-45 uppercase text-[9px]">{t('fancard.ledgerAssetNetwork', 'Ledger Asset Network')}</span>
                               <span className="text-white font-bold text-sm">{celeb?.cryptoTokenName || 'USDT TRC20 (Tether)'}</span>
                             </div>
                             <div>
-                              <span className="block opacity-45 uppercase text-[9px]">Secure Wallet Address</span>
+                              <span className="block opacity-45 uppercase text-[9px]">{t('fancard.secureWalletAddress', 'Secure Wallet Address')}</span>
                               <span className="text-white font-mono font-bold select-all bg-black/60 p-2 text-xs border border-white/5 block break-all mt-1">{celeb?.cryptoWalletAddress || 'TYJ8m9VAr7pC5dfXg4N8qA2m3Y91vR2Vp'}</span>
                             </div>
                             {celeb?.cryptoWalletQR && (
@@ -1548,11 +1548,11 @@ export const FanCardPage = () => {
 
                       {paymentMethod === 'giftcard' && (
                         <div className="space-y-3 text-sm text-left">
-                          <p className="text-[10px] uppercase font-black tracking-widest text-[#dfb15b]">Celebrity Gift Card Option</p>
+                          <p className="text-[10px] uppercase font-black tracking-widest text-[#dfb15b]">{t('fancard.celebGiftCardOption', 'Celebrity Gift Card Option')}</p>
                           <div className="text-xs">
-                            <span className="block opacity-45 uppercase text-[9px]">Approved Voucher Category</span>
-                            <span className="text-white font-bold block mt-1">{celeb?.payoutGiftCardName || 'Apple Store Gift Card'}</span>
-                            <p className="mt-1.5 text-white/40 text-[9px] leading-relaxed uppercase font-bold">Please purchase voucher pin, and upload receipt proof below.</p>
+                            <span className="block opacity-45 uppercase text-[9px]">{t('fancard.approvedVoucherCategory', 'Approved Voucher Category')}</span>
+                            <span className="text-white font-bold block mt-1">{celeb?.payoutGiftCardName || t('fancard.appleGiftCard', 'Apple Store Gift Card')}</span>
+                            <p className="mt-1.5 text-white/40 text-[9px] leading-relaxed uppercase font-bold">{t('fancard.purchaseVoucherHelp', 'Please purchase voucher pin, and upload receipt proof below.')}</p>
                           </div>
                         </div>
                       )}
@@ -1561,17 +1561,17 @@ export const FanCardPage = () => {
                     {/* Proof selection */}
                     <div className="space-y-2">
                       <label className="block text-[10px] uppercase font-black opacity-40 tracking-widest italic text-white">
-                        Authentication Snapshot (Payment Proof Receipt)
+                        {t('fancard.authSnapshot', 'Authentication Snapshot (Payment Proof Receipt)')}
                       </label>
                       <div className="h-36 rounded-2xl bg-black/40 border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-center px-6 relative cursor-pointer hover:border-[#dfb15b]/50 transition-all group">
                         {proofPreview ? (
                           <div className="flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-widest">
-                            <CheckCircle size={16} /> Receipt Loaded! Tap to change
+                            <CheckCircle size={16} /> {t('fancard.receiptLoaded', 'Receipt Loaded! Tap to change')}
                           </div>
                         ) : (
                           <>
                             <UploadCloud size={24} className="opacity-20 mb-2 group-hover:scale-110 transition-all text-white" />
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40 text-white">Drop Payment Proof Image</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40 text-white">{t('fancard.dropProofImage', 'Drop Payment Proof Image')}</p>
                           </>
                         )}
                         <input 
@@ -1589,7 +1589,7 @@ export const FanCardPage = () => {
                         disabled={loading}
                         className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold uppercase text-[10px] tracking-wider transition-all disabled:opacity-35"
                       >
-                        Back
+                        {t('common.back', 'Back')}
                       </button>
                       <button
                         type="button"
@@ -1597,7 +1597,7 @@ export const FanCardPage = () => {
                         disabled={loading || !proofFile}
                         className="px-8 py-4 bg-primary hover:bg-[#dfb15b] text-black font-black uppercase text-xs tracking-widest rounded-xl transition-all shadow-2xl shadow-primary/25 disabled:opacity-30 flex items-center gap-2 shrink-0 cursor-pointer"
                       >
-                        {loading ? 'Submitting Purchase...' : `Settle Fees & Request Card`}
+                        {loading ? t('booking.processing', 'Booking Request Processing...') : t('fancard.settleFeesBtn', 'Settle Fees & Request Card')}
                       </button>
                     </div>
                   </motion.div>
@@ -1616,15 +1616,15 @@ export const FanCardPage = () => {
 
                     <div className="space-y-3">
                       <h2 className="text-3xl font-display font-black uppercase tracking-tight text-white italic">
-                        Request Received!
+                        {t('fancard.requestReceived', 'Request Received!')}
                       </h2>
                       <div className="p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl text-emerald-300 font-bold text-xs uppercase tracking-wider leading-relaxed max-w-lg mx-auto">
-                        Thank you for joining. Your membership request has been received and your personalized fan card is being processed. A copy will be sent to your email after approval.
+                        {t('fancard.requestReceivedHelp', 'Thank you for joining. Your membership request has been received and your personalized fan card is being processed. A copy will be sent to your email after approval.')}
                       </div>
                     </div>
 
                     <p className="text-white/40 text-[10px] font-black uppercase tracking-widest max-w-sm mx-auto">
-                      The creator has been notified in real-time. Once validated, you can flip, view, and print your VIP credentials from this page.
+                      {t('fancard.creatorNotified', 'The creator has been notified in real-time. Once validated, you can flip, view, and print your VIP credentials from this page.')}
                     </p>
 
                     <div className="pt-6 border-t border-white/5">
@@ -1632,7 +1632,7 @@ export const FanCardPage = () => {
                         onClick={() => { setStep(0); setProofPreview(''); setProofFile(null); }}
                         className="px-8 py-3.5 bg-white/5 hover:bg-white/10 text-white rounded-xl font-black uppercase text-[10px] tracking-widest border border-white/10 cursor-pointer active:scale-95 transition-all"
                       >
-                        Purchase Another Tier
+                        {t('fancard.purchaseAnother', 'Purchase Another Tier')}
                       </button>
                     </div>
                   </motion.div>
@@ -1651,21 +1651,21 @@ export const FanCardPage = () => {
               
               <div className="relative z-10 space-y-8">
                 <div>
-                  <h4 className="text-[9px] font-black uppercase italic tracking-widest text-white/40 mb-4 underline decoration-white/10 text-left">Selected Access Tier</h4>
+                  <h4 className="text-[9px] font-black uppercase italic tracking-widest text-white/40 mb-4 underline decoration-white/10 text-left">{t('fancard.selectedAccessTier', 'Selected Access Tier')}</h4>
                   <p className="text-4xl font-display font-black tracking-tight italic uppercase text-primary leading-none mb-1 text-left">{currentTier?.title}</p>
-                  <p className="text-[10px] font-extrabold opacity-60 text-emerald-400 text-left">STATUS: ACTIVE SELECTION</p>
+                  <p className="text-[10px] font-extrabold opacity-60 text-emerald-400 text-left">{t('fancard.statusActiveSelection', 'STATUS: ACTIVE SELECTION')}</p>
                 </div>
 
                 <div className="space-y-5 pt-6 border-t border-white/5">
                   <div className="text-left">
-                    <p className="text-[9px] font-black uppercase opacity-45 mb-1 tracking-widest text-white/50">Membership Cost</p>
-                    <p className="text-3xl font-display font-black tracking-tight text-white">${currentTier?.price} <span className="text-[9px] text-white/30 lowercase font-sans">/year</span></p>
+                    <p className="text-[9px] font-black uppercase opacity-45 mb-1 tracking-widest text-[#white/50]">{t('fancard.membershipCost', 'Membership Cost')}</p>
+                    <p className="text-3xl font-display font-black tracking-tight text-white">${currentTier?.price} <span className="text-[9px] text-white/30 lowercase font-sans">/{t('fancard.yearText', 'year')}</span></p>
                   </div>
                   
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-left space-y-2">
-                    <p className="text-[8px] font-black uppercase opacity-40 tracking-widest text-[#dfb15b]">Backstage ID Credentials</p>
+                    <p className="text-[8px] font-black uppercase opacity-40 tracking-widest text-[#dfb15b]">{t('fancard.backstageIdCredentials', 'Backstage ID Credentials')}</p>
                     <p className="text-[10px] opacity-60 leading-relaxed text-white/70">
-                      Your high-security fan pass will display your name, membership ID, issue timestamp, and benefits. It will automatically authorize within direct private messages and chats.
+                      {t('fancard.credentialsPolicyDesc', 'Your high-security fan pass will display your name, membership ID, issue timestamp, and benefits. It will automatically authorize within direct private messages and chats.')}
                     </p>
                   </div>
                 </div>
@@ -1677,7 +1677,7 @@ export const FanCardPage = () => {
                 <Star size={18} />
               </div>
               <p className="text-[9px] font-black uppercase opacity-60 tracking-widest leading-snug text-white/60">
-                Digital Fan Card is hosted securely on decentralized systems for instant online back-end validation.
+                {t('fancard.hostedSecurelyDesc', 'Digital Fan Card is hosted securely on decentralized systems for instant online back-end validation.')}
               </p>
             </div>
           </div>
