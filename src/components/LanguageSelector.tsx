@@ -39,7 +39,7 @@ export const LanguageSelector: React.FC = () => {
 
   return (
     <div 
-      className={`fixed ${lang === 'ar' ? 'left-6' : 'right-6'} bottom-6 z-50`} 
+      className="fixed left-6 bottom-6 z-50" 
       ref={dropdownRef}
       id="floating-language-selector"
     >
@@ -51,7 +51,7 @@ export const LanguageSelector: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 15, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="absolute bottom-16 right-0 mb-2 w-52 rounded-2xl bg-slate-950/95 border border-white/10 p-2 shadow-2xl backdrop-blur-3xl overflow-hidden max-h-80 overflow-y-auto"
+              className="absolute bottom-16 left-0 mb-2 w-52 rounded-2xl bg-slate-950/95 border border-white/10 p-2 shadow-2xl backdrop-blur-3xl overflow-hidden max-h-80 overflow-y-auto"
             >
               <div className="px-3 py-2 text-[10px] font-black tracking-widest text-white/40 uppercase mb-1">
                 {lang === 'ar' ? 'اختر اللغة' : 'Select Language'}
