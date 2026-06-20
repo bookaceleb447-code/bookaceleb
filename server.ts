@@ -1907,20 +1907,83 @@ app.post(["/api/translate", "/translate"], async (req, res) => {
     return res.json({ translatedText: text });
   }
 
-  const envGemini = process.env.GEMINI_API_KEY;
-  const envGroq = process.env.GROQ_API_KEY;
+  let apiKey = "";
+  let groqApiKey = "";
+  const firestore = getDb();
 
-  if (!envGemini && !envGroq) {
+  // 1. Try loading Gemini key from Firestore
+  if (firestore) {
+    try {
+      const snap = await firestore.collection("adminSettings").doc("gemini").get();
+      if (snap.exists && snap.data()?.apiKey) {
+        const dbKey = snap.data().apiKey.trim();
+        if (isValidGeminiApiKey(dbKey)) {
+          apiKey = dbKey;
+          console.log("🔑 [TRANSLATE] Gemini API Key loaded Dynamically from Firestore adminSettings/gemini.");
+        }
+      }
+    } catch (dbKeyErr) {
+      console.warn("⚠️ [TRANSLATE] Failed to load Gemini API key from administrative Firestore config:", dbKeyErr);
+    }
+  }
+
+  // 2. Fall back to process.env
+  if (!apiKey) {
+    apiKey = process.env.GEMINI_API_KEY || "";
+  }
+
+  if (apiKey) {
+    apiKey = apiKey.trim().replace(/^["']|["']$/g, "").trim();
+  }
+
+  if (apiKey && !isValidGeminiApiKey(apiKey)) {
+    console.warn("⚠️ [TRANSLATE] Resolved Gemini API Key fails the validation checks.");
+    apiKey = "";
+  }
+
+  // 3. Try loading Groq key from Firestore
+  if (firestore) {
+    try {
+      const snap = await firestore.collection("adminSettings").doc("groq").get();
+      if (snap.exists && snap.data()?.apiKey) {
+        const dbKey = snap.data().apiKey.trim();
+        if (isValidGroqApiKey(dbKey)) {
+          groqApiKey = dbKey;
+          console.log("🔑 [TRANSLATE] Groq API Key loaded Dynamically from Firestore adminSettings/groq.");
+        }
+      }
+    } catch (dbKeyErr) {
+      console.warn("⚠️ [TRANSLATE] Failed to load Groq API key from administrative Firestore config:", dbKeyErr);
+    }
+  }
+
+  // 4. Fall back to process.env
+  if (!groqApiKey) {
+    groqApiKey = process.env.GROQ_API_KEY || "";
+  }
+
+  if (groqApiKey) {
+    groqApiKey = groqApiKey.trim().replace(/^["']|["']$/g, "").trim();
+  }
+
+  if (groqApiKey && !isValidGroqApiKey(groqApiKey)) {
+    console.warn("⚠️ [TRANSLATE] Resolved Groq API Key fails the validation checks.");
+    groqApiKey = "";
+  }
+
+  if (!apiKey && !groqApiKey) {
+    console.warn("⚠️ [TRANSLATE] No valid Gemini or Groq keys exist in translation endpoint.");
     return res.json({ translatedText: text });
   }
 
   let translatedText = text;
   let success = false;
 
-  if (envGemini) {
+  // Use Gemini first
+  if (apiKey) {
     try {
       const ai = new GoogleGenAI({
-        apiKey: envGemini,
+        apiKey: apiKey,
         httpOptions: { headers: { "User-Agent": "aistudio-build" } }
       });
       const response = await ai.models.generateContent({
@@ -1936,7 +1999,8 @@ app.post(["/api/translate", "/translate"], async (req, res) => {
     }
   }
 
-  if (!success && envGroq) {
+  // If Gemini failed or is used up, fall back to Groq
+  if (!success && groqApiKey) {
     try {
       const payload = {
         model: "llama-3.3-70b-versatile",
@@ -1947,7 +2011,7 @@ app.post(["/api/translate", "/translate"], async (req, res) => {
       };
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${envGroq}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (response.ok) {
