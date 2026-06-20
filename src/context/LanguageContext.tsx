@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { auth } from '../lib/firebase';
 
 export type Language = 'en' | 'fr' | 'de' | 'es' | 'it' | 'pt' | 'ar';
 
@@ -249,9 +250,18 @@ export function useAutoTranslate(text: string): string {
     let isMounted = true;
     const fetchTranslation = async () => {
       try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (auth.currentUser) {
+          try {
+            const token = await auth.currentUser.getIdToken();
+            headers['Authorization'] = `Bearer ${token}`;
+          } catch (tokenErr) {
+            console.warn("Failed to retrieve ID token for translation request:", tokenErr);
+          }
+        }
         const res = await fetch('/api/translate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({ text: trimmed, targetLang: lang })
         });
         if (res.ok) {

@@ -157,6 +157,32 @@ validateFirebaseAdminCredentials();
 let db: any = null;
 let connectionAttemptsCount = 0;
 
+let appletConfigCached: any = null;
+
+function readAppletConfig() {
+  if (appletConfigCached) return appletConfigCached;
+  try {
+    const paths = [
+      path.join(process.cwd(), "firebase-applet-config.json"),
+      path.join(process.cwd(), "api", "firebase-applet-config.json"),
+      path.join(__dirname, "firebase-applet-config.json"),
+      path.join(__dirname, "..", "firebase-applet-config.json"),
+      "/var/task/firebase-applet-config.json"
+    ];
+    for (const configPath of paths) {
+      if (fs.existsSync(configPath)) {
+        const data = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        appletConfigCached = data;
+        console.log(`✅ [CONFIG] Loaded firebase config successfully from ${configPath}:`, data);
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ [CONFIG] Failed to read firebase-applet-config.json from expected locations:", err);
+  }
+  return {};
+}
+
 function getDatabaseId() {
   if (process.env.FIRESTORE_DATABASE_ID) return process.env.FIRESTORE_DATABASE_ID;
   if (process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID) return process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID;
@@ -165,16 +191,9 @@ function getDatabaseId() {
     return "(default)";
   }
 
-  try {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (data.firestoreDatabaseId) {
-        return data.firestoreDatabaseId;
-      }
-    }
-  } catch (err) {
-    // ignore
+  const config = readAppletConfig();
+  if (config.firestoreDatabaseId) {
+    return config.firestoreDatabaseId;
   }
 
   return "(default)";
@@ -187,16 +206,9 @@ function getProjectId() {
   if (process.env.VITE_FIREBASE_PROJECT_ID) {
     return process.env.VITE_FIREBASE_PROJECT_ID;
   }
-  try {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (data.projectId) {
-        return data.projectId;
-      }
-    }
-  } catch (err) {
-    // ignore
+  const config = readAppletConfig();
+  if (config.projectId) {
+    return config.projectId;
   }
   return "placeholder-project-id";
 }
@@ -1910,21 +1922,21 @@ app.post(["/api/translate", "/translate"], async (req, res) => {
   let apiKey = "";
   let groqApiKey = "";
   const firestore = getDb();
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split("Bearer ")[1] : undefined;
 
   // 1. Try loading Gemini key from Firestore
-  if (firestore) {
-    try {
-      const snap = await firestore.collection("adminSettings").doc("gemini").get();
-      if (snap.exists && snap.data()?.apiKey) {
-        const dbKey = snap.data().apiKey.trim();
-        if (isValidGeminiApiKey(dbKey)) {
-          apiKey = dbKey;
-          console.log("🔑 [TRANSLATE] Gemini API Key loaded Dynamically from Firestore adminSettings/gemini.");
-        }
+  try {
+    const rawData = await fetchDocumentWithFallback("adminSettings", "gemini", token, firestore);
+    if (rawData && rawData.apiKey && rawData.apiKey.trim() !== "") {
+      const dbKey = rawData.apiKey.trim();
+      if (isValidGeminiApiKey(dbKey)) {
+        apiKey = dbKey;
+        console.log("🔑 [TRANSLATE] Gemini API Key loaded Dynamically from Firestore adminSettings/gemini.");
       }
-    } catch (dbKeyErr) {
-      console.warn("⚠️ [TRANSLATE] Failed to load Gemini API key from administrative Firestore config:", dbKeyErr);
     }
+  } catch (dbKeyErr) {
+    console.warn("⚠️ [TRANSLATE] Failed to load Gemini API key from administrative Firestore config:", dbKeyErr);
   }
 
   // 2. Fall back to process.env
@@ -1942,19 +1954,17 @@ app.post(["/api/translate", "/translate"], async (req, res) => {
   }
 
   // 3. Try loading Groq key from Firestore
-  if (firestore) {
-    try {
-      const snap = await firestore.collection("adminSettings").doc("groq").get();
-      if (snap.exists && snap.data()?.apiKey) {
-        const dbKey = snap.data().apiKey.trim();
-        if (isValidGroqApiKey(dbKey)) {
-          groqApiKey = dbKey;
-          console.log("🔑 [TRANSLATE] Groq API Key loaded Dynamically from Firestore adminSettings/groq.");
-        }
+  try {
+    const rawData = await fetchDocumentWithFallback("adminSettings", "groq", token, firestore);
+    if (rawData && rawData.apiKey && rawData.apiKey.trim() !== "") {
+      const dbKey = rawData.apiKey.trim();
+      if (isValidGroqApiKey(dbKey)) {
+        groqApiKey = dbKey;
+        console.log("🔑 [TRANSLATE] Groq API Key loaded Dynamically from Firestore adminSettings/groq.");
       }
-    } catch (dbKeyErr) {
-      console.warn("⚠️ [TRANSLATE] Failed to load Groq API key from administrative Firestore config:", dbKeyErr);
     }
+  } catch (dbKeyErr) {
+    console.warn("⚠️ [TRANSLATE] Failed to load Groq API key from administrative Firestore config:", dbKeyErr);
   }
 
   // 4. Fall back to process.env
