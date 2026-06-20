@@ -12,7 +12,7 @@ export function isValidGeminiApiKey(key: string | undefined): boolean {
   if (!key) return false;
   const clean = key.trim().replace(/^["']|["']$/g, "").trim();
   if (clean.length < 15) return false;
-  if (!clean.startsWith("AIzaSy")) return false;
+  if (!clean.startsWith("AIzaSy") && !clean.startsWith("AQ.")) return false;
   const upper = clean.toUpperCase();
   if (upper.includes("PLACEHOLDER") || upper.includes("YOUR_") || upper.includes("API_KEY") || upper.includes("ENTER_") || upper === "UNDEFINED") {
     return false;
@@ -42,7 +42,7 @@ const rawGemini = process.env.GEMINI_API_KEY;
 if (rawGemini) {
   const isVal = isValidGeminiApiKey(rawGemini);
   const cleaned = rawGemini.trim().replace(/^["']|["']$/g, "").trim();
-  console.log(`  - GEMINI_API_KEY: EXISTS (Length: ${rawGemini.length}, Starts with AIzaSy: ${cleaned.startsWith("AIzaSy")}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)}, Valid: ${isVal})`);
+  console.log(`  - GEMINI_API_KEY: EXISTS (Length: ${rawGemini.length}, Starts with AIzaSy or AQ.: ${cleaned.startsWith("AIzaSy") || cleaned.startsWith("AQ.")}, Masked: ${cleaned.slice(0, 6)}...${cleaned.slice(-4)}, Valid: ${isVal})`);
 } else {
   console.log("  - GEMINI_API_KEY: MISSING ❌");
 }
@@ -1394,7 +1394,7 @@ async function generateWithLiteLLM(
       console.log(`🤖 [LiteLLM Router] [INITIALIZATION] Preparing GoogleGenAI client (instance ${k + 1}/${geminiKeysToTry.length})...`);
       console.log(`   - Model: gemini-3.5-flash`);
       console.log(`   - Key Masked: ${maskedKeyStr}`);
-      console.log(`   - Key Prefix Valid: ${activeKey.startsWith("AIzaSy")}`);
+      console.log(`   - Key Prefix Valid: ${activeKey.startsWith("AIzaSy") || activeKey.startsWith("AQ.")}`);
       
       const ai = new GoogleGenAI({
         apiKey: activeKey,
