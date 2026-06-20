@@ -225,3 +225,59 @@ export const useLanguage = () => {
   }
   return context;
 };
+
+// Automatic dynamic text translation hook with localStorage query cache
+export function useAutoTranslate(text: string): string {
+  const context = useContext(LanguageContext);
+  const lang = context ? context.lang : 'en';
+  const [translated, setTranslated] = useState(text);
+
+  useEffect(() => {
+    if (!text || typeof text !== 'string' || !text.trim() || lang === 'en') {
+      setTranslated(text);
+      return;
+    }
+
+    const trimmed = text.trim();
+    const cacheKey = `trans_${lang}_${encodeURIComponent(trimmed)}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      setTranslated(cached);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchTranslation = async () => {
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: trimmed, targetLang: lang })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.translatedText) {
+            localStorage.setItem(cacheKey, data.translatedText);
+            setTranslated(data.translatedText);
+          }
+        }
+      } catch (err) {
+        console.error("AutoTranslate error:", err);
+      }
+    };
+
+    fetchTranslation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [text, lang]);
+
+  return translated;
+}
+
+// Global drop-in React component for real-time translation fallback
+export const Translate: React.FC<{ text: string }> = ({ text }) => {
+  const translated = useAutoTranslate(text);
+  return <>{translated}</>;
+};

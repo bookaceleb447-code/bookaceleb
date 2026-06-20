@@ -117,8 +117,7 @@ function validateFirebaseAdminCredentials() {
     console.error("   - FIREBASE_CLIENT_EMAIL : e.g. 'firebase-adminsdk-fbsvc@bookaceleb-e9162.iam.gserviceaccount.com'");
     console.error("   - FIREBASE_PRIVATE_KEY  : Paste the entire BEGIN...END block. Vercel preserves multiline keys perfectly.");
     console.error("=================================================================================\n");
-    // Enable fallback mode instead of crashing startup when running on Vercel/Production
-    console.warn("\n📻 [FALLBACK SYSTEM ACTIVE] Startup proceeding without full Admin SDK credentials.");
+    console.warn("\n\u{1F4FB} [FALLBACK SYSTEM ACTIVE] Startup proceeding without full Admin SDK credentials.");
     console.warn("   The application will seamlessly fall back to REST-based Firebase transactions using end-user Bearer tokens.");
     console.warn("=================================================================================\n");
   } else {
@@ -1543,6 +1542,73 @@ async function logAiReq(firestore, verifiedCelebId, isAiSubscribed, status, erro
     console.error("\u26A0\uFE0F Failed to write to telemetry collections (aiRequests, userAiUsage, aiAnalytics):", err);
   }
 }
+
+// Universal translate endpoint with Gemini and Groq fallback
+app.post(["/api/translate", "/translate"], async (req, res) => {
+  const { text, targetLang } = req.body;
+  if (!text || !targetLang || targetLang === "en") {
+    return res.json({ translatedText: text });
+  }
+
+  const envGemini = process.env.GEMINI_API_KEY;
+  const envGroq = process.env.GROQ_API_KEY;
+
+  if (!envGemini && !envGroq) {
+    return res.json({ translatedText: text });
+  }
+
+  let translatedText = text;
+  let success = false;
+
+  if (envGemini) {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: envGemini,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      });
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: `Translate the following sentence or block directly into "${targetLang}" language. Return ONLY the translated resulting string. Do NOT add any extra explanation or comments. Maintain all variables, characters and punctuation. Text to translate:\n\n${text}`,
+      });
+      if (response && response.text) {
+        translatedText = response.text.trim();
+        success = true;
+      }
+    } catch (err) {
+      console.error("Translate endpoint Gemini fail:", err);
+    }
+  }
+
+  if (!success && envGroq) {
+    try {
+      const payload = {
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: "You are a direct translator. Output ONLY the direct translation." },
+          { role: "user", content: `Translate into "${targetLang}". Output ONLY translation:\n\n${text}` }
+        ]
+      };
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${envGroq}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        const body = await response.json();
+        const content = body?.choices?.[0]?.message?.content;
+        if (content) {
+          translatedText = content.trim();
+          success = true;
+        }
+      }
+    } catch (err) {
+      console.error("Translate endpoint Groq fail:", err);
+    }
+  }
+
+  res.json({ translatedText });
+});
+
 app.post(["/api/gemini/suggest-replies", "/gemini/suggest-replies"], async (req, res) => {
   const { chatId, messages, celebId, isRegenerate, previousSuggestions } = req.body;
   const authHeader = req.headers.authorization;

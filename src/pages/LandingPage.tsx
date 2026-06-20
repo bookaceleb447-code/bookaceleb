@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, Translate } from '../context/LanguageContext';
 
 export const LandingPage = () => {
   const { t, lang } = useLanguage();
@@ -377,7 +377,7 @@ const CelebrityCard = ({ celeb, currencySymbol, isTrending }: any) => {
             </div>
           </div>
           <p className="text-white/40 text-sm font-medium line-clamp-2 italic mb-6">
-            "{celeb.bio || t('booking.reasonPlaceholder', 'High-end consultation and private elite fan card options.')}"
+            "<Translate text={celeb.bio || t('booking.reasonPlaceholder', 'High-end consultation and private elite fan card options.')} />"
           </p>
         </div>
 

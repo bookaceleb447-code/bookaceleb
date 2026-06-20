@@ -1900,6 +1900,72 @@ async function logAiReq(
   }
 }
 
+// Universal translate endpoint with Gemini and Groq fallback
+app.post(["/api/translate", "/translate"], async (req, res) => {
+  const { text, targetLang } = req.body;
+  if (!text || !targetLang || targetLang === "en") {
+    return res.json({ translatedText: text });
+  }
+
+  const envGemini = process.env.GEMINI_API_KEY;
+  const envGroq = process.env.GROQ_API_KEY;
+
+  if (!envGemini && !envGroq) {
+    return res.json({ translatedText: text });
+  }
+
+  let translatedText = text;
+  let success = false;
+
+  if (envGemini) {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: envGemini,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      });
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: `Translate the following sentence or block directly into "${targetLang}" language. Return ONLY the translated resulting string. Do NOT add any extra explanation or comments. Maintain all variables, characters and punctuation. Text to translate:\n\n${text}`,
+      });
+      if (response && response.text) {
+        translatedText = response.text.trim();
+        success = true;
+      }
+    } catch (err) {
+      console.error("Translate endpoint Gemini fail:", err);
+    }
+  }
+
+  if (!success && envGroq) {
+    try {
+      const payload = {
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: "You are a direct translator. Output ONLY the direct translation." },
+          { role: "user", content: `Translate into "${targetLang}". Output ONLY translation:\n\n${text}` }
+        ]
+      };
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${envGroq}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        const body: any = await response.json();
+        const content = body?.choices?.[0]?.message?.content;
+        if (content) {
+          translatedText = content.trim();
+          success = true;
+        }
+      }
+    } catch (err) {
+      console.error("Translate endpoint Groq fail:", err);
+    }
+  }
+
+  res.json({ translatedText });
+});
+
 // Suggest 5 smart replies based on last 10 messages using Gemini 2.5/3.5 Flash API
 app.post(["/api/gemini/suggest-replies", "/gemini/suggest-replies"], async (req, res) => {
   const { chatId, messages, celebId, isRegenerate, previousSuggestions } = req.body;

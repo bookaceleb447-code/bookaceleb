@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
-import { useLanguage } from '../../context/LanguageContext';
+import { useLanguage, Translate } from '../../context/LanguageContext';
 import { auth, db, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { doc, onSnapshot, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
 import { Crown, Heart, Calendar, CreditCard, MessageSquare, ListCheck, UserCircle, Star, Sparkles, Activity, ShieldCheck, ArrowUpRight, MapPin, Tag, LogOut, Menu, X, LifeBuoy, Home, PhoneCall, Instagram, Send } from 'lucide-react';
@@ -222,7 +222,7 @@ export const UserDashboard = () => {
 
                   {celeb.bio && (
                     <p className="text-white/40 text-xs italic leading-relaxed line-clamp-2 pt-1 border-t border-white/5">
-                      "{celeb.bio}"
+                      "<Translate text={celeb.bio} />"
                     </p>
                   )}
                 </div>

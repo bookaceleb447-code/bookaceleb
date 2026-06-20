@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { doc, onSnapshot, getDoc, addDoc, collection, serverTimestamp, query, where, setDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
-import { useLanguage } from '../../context/LanguageContext';
+import { useLanguage, Translate } from '../../context/LanguageContext';
 import { uploadToCloudinary } from '../../lib/cloudinary';
 import { motion, AnimatePresence } from 'motion/react';
 import { CelebrityHeader, FAQSection } from '../../components/CelebrityLayout';
@@ -132,6 +132,24 @@ export const FanCardPage = () => {
     if (plans && plans.length > 0 && !plans.some((p: any) => p.id === selectedTier)) {
       const rec = plans.find((p: any) => p.recommended || p.badge?.toLowerCase() === 'recommended');
       setSelectedTier(rec ? rec.id : plans[0].id);
+    }
+  }, [celeb]);
+
+  useEffect(() => {
+    if (celeb) {
+      const activeMethods: ('bank' | 'crypto' | 'giftcard')[] = [];
+      if (celeb?.payoutBankName && celeb?.payoutAccountNo) {
+        activeMethods.push('bank');
+      }
+      if (celeb?.cryptoWalletAddress) {
+        activeMethods.push('crypto');
+      }
+      if (celeb?.payoutGiftCardName || celeb?.allowGiftCards) {
+        activeMethods.push('giftcard');
+      }
+      if (activeMethods.length > 0 && !activeMethods.includes(paymentMethod)) {
+        setPaymentMethod(activeMethods[0]);
+      }
     }
   }, [celeb]);
 
@@ -1220,11 +1238,11 @@ export const FanCardPage = () => {
                         >
                           {(tier.recommended || tier.badge) && (
                             <div className="absolute top-0 right-0 bg-[#dfb15b] text-black text-[8px] font-black uppercase px-4 py-1.5 rounded-bl-2xl tracking-[0.2em]">
-                              {tier.badge || t('fancard.recommended', 'Recommended')}
+                              <Translate text={tier.badge || t('fancard.recommended', 'Recommended')} />
                             </div>
                           )}
                           <div>
-                            <h3 className={`text-md font-bold uppercase tracking-tight mb-2 ${selectedTier === tier.id ? 'text-[#dfb15b]' : 'text-white/50'}`}>{tier.title}</h3>
+                            <h3 className={`text-md font-bold uppercase tracking-tight mb-2 ${selectedTier === tier.id ? 'text-[#dfb15b]' : 'text-white/50'}`}><Translate text={tier.title} /></h3>
                             <div className="flex items-baseline gap-1 mb-6">
                               <span className="text-3xl font-display font-black tracking-tighter text-white">${tier.price}</span>
                               <span className="text-[9px] font-bold opacity-30 uppercase text-white/40">/{t('fancard.yr', 'YR')}</span>
@@ -1232,7 +1250,7 @@ export const FanCardPage = () => {
                             <ul className="space-y-2.5">
                               {tier.perks?.map((p: string) => (
                                 <li key={p} className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-white/70">
-                                  <CheckCircle size={12} className="text-[#dfb15b] shrink-0" /> {p}
+                                  <CheckCircle size={12} className="text-[#dfb15b] shrink-0" /> <Translate text={p} />
                                 </li>
                               ))}
                             </ul>
@@ -1476,25 +1494,39 @@ export const FanCardPage = () => {
 
                     {/* Payment Switchers */}
                     <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                      {[
-                        { id: 'bank', name: t('booking.bankTransfer', 'Bank Transfer'), icon: <Landmark size={14} /> },
-                        { id: 'crypto', name: t('booking.cryptoWallet', 'Crypto Wallet'), icon: <Coins size={14} /> },
-                        { id: 'giftcard', name: t('booking.giftCard', 'Gift Card'), icon: <Gift size={14} /> }
-                      ].map(method => (
-                        <button
-                          type="button"
-                          key={method.id}
-                          onClick={() => setPaymentMethod(method.id as any)}
-                          className={`p-3 sm:p-4 rounded-xl flex flex-col items-center justify-center gap-1.5 border text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all break-words word-break-normal overflow-wrap-anywhere ${
-                            paymentMethod === method.id 
-                              ? 'bg-primary text-black border-primary shadow-xl shadow-primary/10 font-bold' 
-                              : 'bg-black/40 text-white/60 border-white/10 hover:bg-white/5 hover:text-white'
-                          }`}
-                        >
-                          {method.icon}
-                          <span className="text-center">{method.name}</span>
-                        </button>
-                      ))}
+                      {(() => {
+                        const activeMethods = [];
+                        if (celeb?.payoutBankName && celeb?.payoutAccountNo) {
+                          activeMethods.push({ id: 'bank', name: t('booking.bankTransfer', 'Bank Transfer'), icon: <Landmark size={14} /> });
+                        }
+                        if (celeb?.cryptoWalletAddress) {
+                          activeMethods.push({ id: 'crypto', name: t('booking.cryptoWallet', 'Crypto Wallet'), icon: <Coins size={14} /> });
+                        }
+                        if (celeb?.payoutGiftCardName || celeb?.allowGiftCards) {
+                          activeMethods.push({ id: 'giftcard', name: t('booking.giftCard', 'Gift Card'), icon: <Gift size={14} /> });
+                        }
+                        // Fallback to all if none is set
+                        const finalMethods = activeMethods.length > 0 ? activeMethods : [
+                          { id: 'bank', name: t('booking.bankTransfer', 'Bank Transfer'), icon: <Landmark size={14} /> },
+                          { id: 'crypto', name: t('booking.cryptoWallet', 'Crypto Wallet'), icon: <Coins size={14} /> },
+                          { id: 'giftcard', name: t('booking.giftCard', 'Gift Card'), icon: <Gift size={14} /> }
+                        ];
+                        return finalMethods.map(method => (
+                          <button
+                            type="button"
+                            key={method.id}
+                            onClick={() => setPaymentMethod(method.id as any)}
+                            className={`p-3 sm:p-4 rounded-xl flex flex-col items-center justify-center gap-1.5 border text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all break-words word-break-normal overflow-wrap-anywhere ${
+                              paymentMethod === method.id 
+                                ? 'bg-primary text-black border-primary shadow-xl shadow-primary/10 font-bold' 
+                                : 'bg-black/40 text-white/60 border-white/10 hover:bg-white/5 hover:text-white'
+                            }`}
+                          >
+                            {method.icon}
+                            <span className="text-center">{method.name}</span>
+                          </button>
+                        ));
+                      })()}
                     </div>
 
                     {/* Configure details panel based on Selection */}
