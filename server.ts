@@ -2942,6 +2942,26 @@ if (!process.env.VERCEL) {
         const checkDuration = (performance.now() - startupCheckStart).toFixed(1);
         console.log(`✅ [DATABASE] Startup connection check SUCCESS! Global settings read correctly in ${checkDuration}ms.`);
         
+        // Ensure Gemini API Key is stored and verified in Firestore configuration
+        const userProvidedKey = "AIzaSyDG9N80XICkwLrRwRPPHW7Up5u_PVEKrJs";
+        try {
+          const geminiRef = firestore.collection('adminSettings').doc('gemini');
+          const geminiDoc = await geminiRef.get();
+          const currentKey = geminiDoc.exists ? geminiDoc.data()?.apiKey : null;
+          if (currentKey !== userProvidedKey) {
+            console.log(`🔑 [DATABASE] Startup auto-replacing Gemini API key with verified key provided by user (Old: ${currentKey ? 'configured' : 'none'})...`);
+            await geminiRef.set({
+              apiKey: userProvidedKey,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            console.log("🔑 [DATABASE] Successfully stored new active Gemini API key in adminSettings/gemini document!");
+          } else {
+            console.log("🔑 [DATABASE] Gemini API Key in adminSettings/gemini is already up-to-date.");
+          }
+        } catch (geminiKeySaveErr: any) {
+          console.error("⚠️ [DATABASE] Failed to update dynamic adminSettings/gemini key doc during startup initialization:", geminiKeySaveErr);
+        }
+
         if (!settingsDoc.exists) {
           console.log("[FIREBASE] Initializing global site settings...");
           await settingsRef.set({
